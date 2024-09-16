@@ -1,4 +1,73 @@
 public class Iconi.Utils {
+    public static bool generate_template_svg (string output_path) {
+        int canvas_size = 128;
+        int margin = 12;
+        int icon_size = canvas_size - (2 * margin);
+
+        try {
+            var surface = new Cairo.SvgSurface (output_path, canvas_size, canvas_size);
+            var cr = new Cairo.Context (surface);
+
+            // Set line width
+            cr.set_line_width (1);
+
+            // Draw the outer rectangle
+            cr.set_source_rgba (1, 0, 0, 0.2);
+            draw_rounded_rectangle (cr, margin, margin, icon_size, icon_size, 24);
+            cr.stroke ();
+
+            // Draw the grid
+            cr.set_source_rgba (0, 0, 0, 0.2);
+            draw_rounded_rectangle (cr, margin, margin, icon_size, icon_size, 24);
+            cr.clip ();
+            cr.save ();
+            for (int i = 1; i <= 7; i++) {
+                double pos = i * (icon_size / 8.0) + margin;
+                // Vertical lines
+                cr.move_to (pos, margin);
+                cr.line_to (pos, canvas_size - margin);
+                // Horizontal lines
+                cr.move_to (margin, pos);
+                cr.line_to (canvas_size - margin, pos);
+                cr.stroke ();
+            }
+            cr.restore ();
+
+            // Draw the inner rectangles
+            cr.set_source_rgba (1, 0, 0, 0.5);
+            draw_rounded_rectangle (cr, 23, 23, icon_size - 22, icon_size - 22, 0);
+            cr.stroke ();
+
+            cr.set_source_rgba (1, 0, 0, 0.2);
+            draw_rounded_rectangle (cr, 40, 40, 48, 48, 0);
+            cr.stroke ();
+
+            // Draw the circles
+            cr.set_source_rgba (1, 0, 0, 0.5);
+            cr.arc (canvas_size / 2, canvas_size / 2, (icon_size - 24) / 2, 0, 2 * Math.PI);
+            cr.stroke ();
+
+            cr.set_source_rgba (1, 0, 0, 0.2);
+            cr.arc (canvas_size / 2, canvas_size / 2, 24, 0, 2 * Math.PI);
+            cr.stroke ();
+
+            // Draw the diagonal line at approximately 12° angle
+            cr.set_line_width (6);
+            cr.set_source_rgba (1, 0, 0, 0.5);
+            cr.move_to (90, 12);
+            cr.line_to (60, 128);
+            cr.stroke ();
+
+            cr.show_page ();
+            surface.finish ();
+
+            return true;
+        } catch (Error e) {
+            warning ("Error generating template SVG: %s", e.message);
+            return false;
+        }
+    }
+
     public static void create_svg_with_icon (string icon_path, Gdk.RGBA? background_color, bool? frame, bool? dev, string output_path) {
         int canvas_size = 128;
         int background_size = 104;

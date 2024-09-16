@@ -1,8 +1,5 @@
 [GtkTemplate (ui = "/com/fyralabs/Iconi/mainwindow.ui")]
 public class Iconi.MainWindow : He.ApplicationWindow {
-
-    [GtkChild]
-    private unowned He.Button file_button;
     [GtkChild]
     private unowned He.Button export_button;
     [GtkChild]
@@ -15,9 +12,12 @@ public class Iconi.MainWindow : He.ApplicationWindow {
     private unowned He.Switch frame_switch;
     [GtkChild]
     private unowned He.Switch dev_switch;
+    [GtkChild]
+    private unowned He.Button generate_template_button;
 
     private string? selected_file_path = null;
     private string? temp_preview_path = null;
+    private string template_path;
 
     private const GLib.ActionEntry WINDOW_ENTRIES[] = {
         { "about", action_about },
@@ -34,8 +34,6 @@ public class Iconi.MainWindow : He.ApplicationWindow {
     construct {
         add_action_entries (WINDOW_ENTRIES, this);
 
-        file_button.clicked.connect (on_file_button_clicked);
-
         // Initialize ColorPickerButton
         color_button.current_color = { 0, (float) 0.52, 1, 1 };
         color_button.has_label = true;
@@ -46,29 +44,49 @@ public class Iconi.MainWindow : He.ApplicationWindow {
         // Connect switches to update_preview
         frame_switch.iswitch.notify["active"].connect (update_preview);
         dev_switch.iswitch.notify["active"].connect (update_preview);
+
+        // Connect generate_template_button
+        generate_template_button.clicked.connect (on_generate_template_clicked);
+
+        // Set the template path
+        template_path = Path.build_filename (Environment.get_home_dir (), "iconi_template.svg");
+
+        // Initially disable all widgets except generate_template_button
+        set_widgets_sensitive (false);
+        generate_template_button.sensitive = true;
     }
 
-    private void on_file_button_clicked () {
-        var file_chooser = new Gtk.FileChooserDialog ("Choose SVG Icon", this,
-                                                      Gtk.FileChooserAction.OPEN,
-                                                      "_Cancel", Gtk.ResponseType.CANCEL,
-                                                      "_Open", Gtk.ResponseType.ACCEPT);
-        var filter = new Gtk.FileFilter ();
-        filter.add_mime_type ("image/svg+xml");
-        filter.set_filter_name ("SVG Files");
-        file_chooser.add_filter (filter);
+    private void on_generate_template_clicked () {
+        if (Utils.generate_template_svg (template_path)) {
+            selected_file_path = template_path;
+            update_preview ();
+            set_widgets_sensitive (true);
+            file_label.set_label (_("Template"));
+            var info_dialog = new Gtk.MessageDialog (this, Gtk.DialogFlags.MODAL,
+                                                     Gtk.MessageType.INFO,
+                                                     Gtk.ButtonsType.OK,
+                                                     _("Template generated successfully at %s").printf (template_path));
+            info_dialog.response.connect ((response_id) => {
+                info_dialog.destroy ();
+            });
+            info_dialog.show ();
+        } else {
+            var error_dialog = new Gtk.MessageDialog (this, Gtk.DialogFlags.MODAL,
+                                                      Gtk.MessageType.ERROR,
+                                                      Gtk.ButtonsType.OK,
+                                                      _("Failed to generate template"));
+            error_dialog.response.connect ((response_id) => {
+                error_dialog.destroy ();
+            });
+            error_dialog.show ();
+        }
+    }
 
-        file_chooser.response.connect ((response) => {
-            if (response == Gtk.ResponseType.ACCEPT) {
-                selected_file_path = file_chooser.get_file ().get_path ();
-                file_label.set_label ("app.svg");
-                file_button.sensitive = false;
-                update_preview ();
-            }
-            file_chooser.destroy ();
-        });
-
-        file_chooser.present ();
+    private void set_widgets_sensitive (bool sensitive) {
+        export_button.sensitive = sensitive;
+        color_button.sensitive = sensitive;
+        frame_switch.sensitive = sensitive;
+        dev_switch.sensitive = sensitive;
     }
 
     private void update_preview () {
@@ -107,7 +125,7 @@ public class Iconi.MainWindow : He.ApplicationWindow {
             var error_dialog = new Gtk.MessageDialog (this, Gtk.DialogFlags.MODAL,
                                                       Gtk.MessageType.ERROR,
                                                       Gtk.ButtonsType.OK,
-                                                      "Please select an input SVG file first.");
+                                                      "Please generate a template first.");
             error_dialog.response.connect ((response_id) => {
                 error_dialog.destroy ();
             });
@@ -151,10 +169,11 @@ public class Iconi.MainWindow : He.ApplicationWindow {
             temp_preview_path = null;
         }
         selected_file_path = null;
-        file_label.set_label (_("Preview"));
-        file_button.sensitive = true;
+        file_label.set_label (_("Template"));
         color_button.current_color = { 0, (float) 0.52, 1, 1 };
         icon_preview.set_paintable (null);
+        set_widgets_sensitive (false);
+        generate_template_button.sensitive = true;
     }
 
     public override void dispose () {

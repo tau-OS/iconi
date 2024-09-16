@@ -67,24 +67,20 @@ template IconiMainWindow : He.ApplicationWindow {
 
         Gtk.Label {
           halign: start;
-          label: _("Please select an SVG file composed of paths.");
+          label: _("Generate the template to create your icon file first.");
 
           styles [
               "dim-label"
           ]
         }
 
-        Gtk.Box {
-            spacing: 18;
+        He.Button generate_template_button {
+            is-pill: true;
+            label: _("Generate Template");
+            width-request: 127;
+        }
 
-            He.Button file_button {
-                is-pill: true;
-                label: _("Icon File");
-                width-request: 127;
-            }
-
-            .IconiColorPickerButton color_button {
-            }
+        .IconiColorPickerButton color_button {
         }
 
         Gtk.Box {
