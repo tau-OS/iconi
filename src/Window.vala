@@ -178,20 +178,18 @@ public class Iconi.MainWindow : He.ApplicationWindow {
             return;
         }
 
-        var save_dialog = new Gtk.FileChooserNative (_("Save SVG"), this,
-                                                     Gtk.FileChooserAction.SAVE,
-                                                     _("Save"), _("Cancel"));
+        var save_dialog = new Gtk.FileDialog ();
+        save_dialog.set_title (_("Save SVG"));
+        save_dialog.set_initial_name ("app.svg");
 
         var svg_filter = new Gtk.FileFilter ();
         svg_filter.add_mime_type ("image/svg+xml");
         svg_filter.set_filter_name (_("SVG Files"));
-        save_dialog.add_filter (svg_filter);
+        save_dialog.set_default_filter (svg_filter);
 
-        save_dialog.set_current_name ("app.svg");
-
-        save_dialog.response.connect ((response) => {
-            if (response == Gtk.ResponseType.ACCEPT) {
-                var file = save_dialog.get_file ();
+        save_dialog.save.begin (this, null, (obj, res) => {
+            try {
+                var file = save_dialog.save.end (res);
                 string output_path = file.get_path ();
                 Utils.create_svg_with_icon (
                                             selected_file_path,
@@ -200,10 +198,21 @@ public class Iconi.MainWindow : He.ApplicationWindow {
                                             output_path
                 );
                 clean_up ();
+            } catch (Error e) {
+                warning ("Error saving file: %s", e.message);
+                var error_dialog = new He.Dialog (
+                                                  true,
+                                                  this,
+                                                  _("Error"),
+                                                  "",
+                                                  _("Failed to save file: %s").printf (e.message),
+                                                  "dialog-error",
+                                                  null,
+                                                  null
+                );
+                error_dialog.present ();
             }
         });
-
-        save_dialog.show ();
     }
 
     private void clean_up () {
