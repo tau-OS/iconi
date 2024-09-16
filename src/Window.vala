@@ -100,6 +100,9 @@ public class Iconi.MainWindow : He.ApplicationWindow {
             set_widgets_sensitive (true);
             file_label.set_label (_("Template"));
 
+            // Disable the generate button
+            generate_template_button.sensitive = false;
+
             var info_dialog = new He.Dialog (
                                              true,
                                              this,
