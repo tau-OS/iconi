@@ -1,0 +1,125 @@
+using Gtk 4.0;
+using He 1;
+
+menu primary-menu {
+  item (_("About Iconi"), "win.about")
+}
+
+template IconiMainWindow : He.ApplicationWindow {
+  width-request: 360;
+  height-request: 294;
+
+  He.ViewMono {
+    titlewidget: He.ViewTitle { label: _("Icon"); };
+    show-back: false;
+
+    [titlebar-menu]
+    Gtk.MenuButton {
+        icon-name: "open-menu-symbolic";
+        menu-model: primary-menu;
+    }
+
+    Gtk.Box {
+      orientation: horizontal;
+
+      // Left side for preview
+      Gtk.Box preview_box {
+        orientation: vertical;
+        margin-end: 18;
+        margin-bottom: 18;
+        width-request: 324;
+        height-request: 158;
+        halign: center;
+        valign: center;
+
+        styles [
+            "checkerboard"
+        ]
+
+        Gtk.Picture icon_preview {
+          width-request: 128;
+          height-request: 128;
+          can-shrink: true;
+          keep-aspect-ratio: false;
+          valign: center;
+          halign: center;
+          vexpand-set: true;
+        }
+
+        Gtk.Label file_label {
+          label: _("Preview");
+          margin-top: 6;
+          margin-bottom: 12;
+
+          styles [
+              "caption"
+          ]
+        }
+      }
+
+      // Right side for existing UI
+      Gtk.Box main_box {
+        orientation: vertical;
+        spacing: 18;
+        margin-bottom: 18;
+        width-request: 324;
+        vexpand-set: true;
+
+        Gtk.Label {
+          halign: start;
+          label: _("Please select an SVG file composed of paths.");
+
+          styles [
+              "dim-label"
+          ]
+        }
+
+        Gtk.Box {
+            spacing: 18;
+
+            He.Button file_button {
+                is-pill: true;
+                label: _("Icon File");
+                width-request: 127;
+            }
+
+            .IconiColorPickerButton color_button {
+            }
+        }
+
+        Gtk.Box {
+            spacing: 18;
+
+            Gtk.Label {
+                label: _("Framed Icon");
+            }
+
+            He.Switch frame_switch {
+                hexpand: true;
+                halign: end;
+            }
+        }
+
+        Gtk.Box {
+            spacing: 18;
+
+            Gtk.Label {
+                label: _("Developer Badge");
+            }
+
+            He.Switch dev_switch {
+                hexpand: true;
+                halign: end;
+            }
+        }
+
+        He.Button export_button {
+          is-pill: true;
+          label: _("Export");
+          vexpand: true;
+          valign: end;
+        }
+      }
+    }
+  }
+}

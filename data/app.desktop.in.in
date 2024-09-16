@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type = Application
+Name = Iconi
+Comment = Create your app's icon with ease
+Icon = @ICON_NAME@
+Exec = @COMMAND@
+Categories = GTK;GNOME;Utilities;

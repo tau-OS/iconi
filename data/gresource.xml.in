@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gresources>
+  <gresource prefix="/com/fyralabs/Iconi">
+    <file compressed="true" preprocess="xml-stripblanks" alias="mainwindow.ui">ui/mainwindow.ui</file>
+
+    <file compressed="true" alias="style.css">style.css</file>
+
+    <file compressed="true" preprocess="xml-stripblanks" alias="effects.svg">assets/effects.svg</file>
+    <file compressed="true" preprocess="xml-stripblanks" alias="frame.svg">assets/frame.svg</file>
+    <file compressed="true" preprocess="xml-stripblanks" alias="dev.svg">assets/dev.svg</file>
+  </gresource>
+</gresources>

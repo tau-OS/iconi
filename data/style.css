@@ -1,0 +1,72 @@
+/* Upstream this! */
+
+.r-slider trough {
+    background: linear-gradient(
+        90deg,
+        #f00,
+        #f80,
+        #ff0,
+        #8f0,
+        #0f0,
+        #08f,
+        #00f,
+        #80f,
+        #f0f
+    );
+}
+.r-slider trough highlight {
+    background: none;
+}
+.g-slider trough {
+    background: linear-gradient(90deg, #000, @accent_color);
+}
+.g-slider trough highlight {
+    background: none;
+}
+.b-slider trough {
+    background: linear-gradient(90deg, #000, #fff);
+}
+.b-slider trough highlight {
+    background: none;
+}
+
+.color-picker-button {
+    border-radius: 16px;
+    background: none;
+    color: @view_fg_color;
+}
+.color-picker-button .main-button {
+    border-radius: 16px;
+    background: none;
+    border-radius: 99px;
+    padding: 4px;
+    margin: 0;
+    color: @view_fg_color;
+    box-shadow: none;
+}
+.color-picker-button .main-button:hover {
+    background: @suggested_container_bg_color;
+    color: @suggested_container_fg_color;
+    box-shadow: none;
+}
+.color-picker-button .main-button:active {
+    background: @suggested_container_bg_color;
+    color: @suggested_container_fg_color;
+    box-shadow: none;
+}
+.color-picker-button .copy-button {
+    border-radius: 99px;
+    -gtk-icon-size: 16px;
+    padding: 8px;
+    margin: 0;
+    background: @suggested_container_bg_color;
+    color: @suggested_container_fg_color;
+}
+.color-picker-button .copy-button:hover {
+    background: @suggested_container_bg_color;
+    color: @suggested_container_fg_color;
+}
+.color-picker-button .copy-button:active {
+    background: @success_bg_color;
+    color: @success_fg_color;
+}
