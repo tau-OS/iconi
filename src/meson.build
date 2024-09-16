@@ -33,7 +33,6 @@ sources = [
   gresources,
   'Config.vapi',
   'App.vala',
-  'ColorPicker.vala',
   'Window.vala',
   'Utils.vala',
 ]
@@ -46,7 +45,7 @@ dependencies = [
   dependency('gee-0.8'),
   dependency('libhelium-1'),
   dependency('gmodule-2.0'),
-  dependency('librsvg-2.0'),
+  dependency('librsvg-2.0', version: '>= 2.52.0'),
   dependency('libxml-2.0'),
   meson.get_compiler('c').find_library('m', required: true),
 ]
