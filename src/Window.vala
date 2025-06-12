@@ -12,6 +12,8 @@ public class Iconi.MainWindow : He.ApplicationWindow {
     private unowned He.Switch dev_switch;
     [GtkChild]
     private unowned He.Button generate_template_button;
+    [GtkChild]
+    private unowned Gtk.Overlay about_overlay;
 
     private string? selected_file_path = null;
     private string? temp_preview_path = null;
@@ -236,20 +238,22 @@ public class Iconi.MainWindow : He.ApplicationWindow {
     }
 
     private void action_about () {
-        new He.AboutWindow (
-                            this,
-                            _("Iconi") + Config.NAME_SUFFIX,
-                            Config.APP_ID,
-                            Config.VERSION,
-                            Config.APP_ID,
-                            null,
-                            "https://github.com/tau-OS/iconi/issues",
-                            "https://github.com/tau-OS/iconi",
-                            null,
-                            { "Fyra Labs" },
-                            2024,
-                            He.AboutWindow.Licenses.GPLV3,
-                            He.Colors.PINK
-        ).present ();
+        var about = new He.AboutWindow (
+                                        this,
+                                        _("Iconi") + Config.NAME_SUFFIX,
+                                        Config.APP_ID,
+                                        Config.VERSION,
+                                        Config.APP_ID,
+                                        null,
+                                        "https://github.com/tau-OS/iconi/issues",
+                                        "https://github.com/tau-OS/iconi",
+                                        null,
+                                        { "Fyra Labs" },
+                                        2024,
+                                        He.AboutWindow.Licenses.GPLV3,
+                                        He.Colors.PINK
+        );
+        about_overlay.add_overlay (about);
+        about.present ();
     }
 }
