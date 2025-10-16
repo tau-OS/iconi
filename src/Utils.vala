@@ -47,6 +47,16 @@ namespace IconiUtils {
         return result;
     }
 
+    public Gdk.RGBA mix_with_black (Gdk.RGBA base_color, double factor) {
+        double t = clamp01 (factor);
+        Gdk.RGBA result = base_color;
+        result.red = (float) clamp01 (base_color.red + (0.0 - base_color.red) * t);
+        result.green = (float) clamp01 (base_color.green + (0.0 - base_color.green) * t);
+        result.blue = (float) clamp01 (base_color.blue + (0.0 - base_color.blue) * t);
+        result.alpha = base_color.alpha;
+        return result;
+    }
+
     public double compute_relative_luminance (Gdk.RGBA color) {
         double alpha = GLib.Math.fmax (0.0, GLib.Math.fmin (color.alpha, 1.0));
         double based = 1.0;

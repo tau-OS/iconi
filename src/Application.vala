@@ -1,4 +1,4 @@
-public class IconMakerApplication : Gtk.Application {
+public class IconMakerApplication : He.Application {
     public IconMakerApplication () {
         Object (application_id: "com.fyralabs.Iconi");
     }

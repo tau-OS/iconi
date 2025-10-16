@@ -1,4 +1,4 @@
-public class IconMakerWindow : Gtk.ApplicationWindow {
+public class IconMakerWindow : He.ApplicationWindow {
 	private IconModel model;
 	private IconRenderer renderer;
 
@@ -24,10 +24,13 @@ public class IconMakerWindow : Gtk.ApplicationWindow {
 	private Gtk.Label fill_label;
 	private Gtk.Box fill_opacity_box;
 	private Gtk.Label stroke_label;
+	private Gtk.Box stroke_color_box;
 	private Gtk.Box stroke_opacity_box;
+	private Gtk.Box stroke_width_box;
 	private Gtk.DropDown fill_mode_drop;
 	private Gtk.Label fill_mode_label;
 	private Gtk.Box fill_gradient_box;
+	private Gtk.Box fill_gradient_angle_box;
 	private Gtk.ColorDialogButton fill_gradient_btn;
 	private Gtk.SpinButton fill_gradient_angle_spin;
 	private Gtk.Label fill_gradient_angle_label;
@@ -35,8 +38,9 @@ public class IconMakerWindow : Gtk.ApplicationWindow {
 	private Gtk.SpinButton line_length_spin;
 	private Gtk.SpinButton line_angle_spin;
 
+	private Gtk.Box blend_drop_box;
 	private Gtk.DropDown blend_drop;
-	private string[] blends = { "normal", "multiply", "screen", "overlay" };
+	private string[] blends = { "normal", "multiply", "screen", "overlay", "darken", "lighten", "color-dodge", "color-burn", "hard-light", "soft-light", "difference", "exclusion", "hue", "saturation", "color", "luminosity" };
 	private string[] bg_fill_modes = { "Solid", "Gradient" };
 
 	private Gtk.ColorDialogButton bg_side_color_btn;
@@ -47,6 +51,7 @@ public class IconMakerWindow : Gtk.ApplicationWindow {
 	private Gtk.Box bg_gradient_container;
 
 	private Gtk.Scale zoom_scale;
+	private Gtk.Label zoom_label;
 	private Gtk.Switch bg_effects_switch;
 	private Gtk.Switch bg_frame_switch;
 	private Gtk.Switch bg_dev_switch;
@@ -98,15 +103,15 @@ public class IconMakerWindow : Gtk.ApplicationWindow {
 		left_box.set_size_request (260, -1);
 		left_box.set_vexpand (true);
 		left_box.set_hexpand_set (true);
-		left_box.set_margin_top (8);
-		left_box.set_margin_bottom (8);
-		left_box.set_margin_start (18);
-		left_box.set_margin_end (18);
 		main_box.append (left_box);
 
-		var header_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		var appbar = new He.AppBar ();
+		appbar.show_left_title_buttons = true;
+		appbar.show_right_title_buttons = false;
+		left_box.append (appbar);
+
 		var left_header = new Gtk.Label (null);
-		left_header.add_css_class ("title-1");
+		left_header.add_css_class ("view-title");
 		left_header.set_markup ("Elements");
 		left_header.set_halign (Gtk.Align.START);
 		left_header.set_hexpand (true);
@@ -128,12 +133,13 @@ public class IconMakerWindow : Gtk.ApplicationWindow {
 		add_menu_btn.set_popover (add_pop);
 		add_menu_btn.set_child (new Gtk.Image.from_icon_name ("list-add-symbolic"));
 
-		header_row.append (left_header);
-		header_row.append (reorder_toggle);
-		header_row.append (add_menu_btn);
-		left_box.append (header_row);
+		appbar.viewtitle_widget = left_header;
+		appbar.append_toggle (reorder_toggle);
+		appbar.append_menu (add_menu_btn);
 
 		listbox = new Gtk.ListBox ();
+		listbox.margin_start = 18;
+		listbox.margin_end = 18;
 		listbox.set_vexpand (true);
 		listbox.add_css_class ("content-list");
 		left_box.append (listbox);
@@ -145,21 +151,21 @@ public class IconMakerWindow : Gtk.ApplicationWindow {
 		center_box.set_name ("center-bg");
 		main_box.append (center_box);
 
-		var top_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
-		top_row.set_margin_top (8);
-		top_row.set_margin_start (18);
-		top_row.set_margin_end (18);
-		center_box.append (top_row);
+		var mappbar = new He.AppBar ();
+		mappbar.show_left_title_buttons = false;
+		mappbar.show_right_title_buttons = false;
+		center_box.append (mappbar);
 
 		// Name label <-> entry via stack
 		var name_label = new Gtk.Label (model.name);
-		name_label.add_css_class ("title-1");
+		name_label.add_css_class ("view-title");
 		name_label.set_halign (Gtk.Align.START);
 		name_label.set_valign (Gtk.Align.CENTER);
 
 		var name_entry = new Gtk.Entry ();
 		name_entry.set_text (model.name);
-		name_entry.set_hexpand (true);
+		name_entry.set_halign (Gtk.Align.START);
+		name_entry.set_size_request (300, -1);
 
 		var name_stack = new Gtk.Stack ();
 		name_stack.add_named (name_label, "label");
@@ -178,14 +184,7 @@ public class IconMakerWindow : Gtk.ApplicationWindow {
 		focus_ctl.leave.connect (() => { commit_name (name_entry, name_label, name_stack); });
 		name_entry.activate.connect (() => { commit_name (name_entry, name_label, name_stack); });
 
-		top_row.append (name_stack);
-
-		var view_mode_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0);
-		view_mode_box.add_css_class ("linked");
-		view_mode_box.set_margin_start (12);
-		view_mode_box.set_margin_end (6);
-		view_mode_box.set_valign (Gtk.Align.CENTER);
-		view_mode_box.set_halign (Gtk.Align.CENTER);
+		mappbar.viewtitle_widget = name_stack;
 
 		view_wall_toggle = new Gtk.ToggleButton ();
 		view_wall_toggle.set_valign (Gtk.Align.CENTER);
@@ -224,9 +223,8 @@ public class IconMakerWindow : Gtk.ApplicationWindow {
 		color_toggle_box.append (view_color_preview);
 		view_color_button.set_child (color_toggle_box);
 
-		view_mode_box.append (view_wall_toggle);
-		view_mode_box.append (view_color_button);
-		top_row.append (view_mode_box);
+		mappbar.append_toggle (view_wall_toggle);
+		mappbar.append (view_color_button);
 
 		view_color_popover = create_view_color_popover ();
 		view_color_popover.set_parent (view_color_button);
@@ -252,15 +250,29 @@ public class IconMakerWindow : Gtk.ApplicationWindow {
 		// Zoom
 		zoom_scale = new Gtk.Scale.with_range (Gtk.Orientation.HORIZONTAL, 0.25, 3.0, 0.25);
 		zoom_scale.set_value (model.zoom);
+		zoom_scale.set_valign (Gtk.Align.CENTER);
+		zoom_scale.set_vexpand (true);
+		zoom_scale.set_margin_top (18);
+		zoom_scale.set_margin_bottom (6);
+		zoom_scale.set_margin_start (12);
+		zoom_scale.set_margin_end (12);
+		zoom_label = new Gtk.Label ("---%");
+		zoom_label.set_halign (Gtk.Align.START);
+		zoom_label.set_label (Math.floor (zoom_scale.get_value () * 100).to_string () + "%");
+		zoom_label.set_margin_start (18);
+		zoom_label.set_margin_top (18);
+		zoom_label.set_margin_end (18);
+		zoom_label.set_margin_bottom (18);
 		var zoom_btn = new Gtk.MenuButton ();
 		var zoom_pop = new Gtk.Popover ();
 		var pop_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
-		pop_box.set_size_request (250, -1);
+		pop_box.set_size_request (300, -1);
 		pop_box.append (zoom_scale);
+		pop_box.append (zoom_label);
 		zoom_pop.set_child (pop_box);
 		zoom_btn.set_popover (zoom_pop);
-		zoom_btn.set_child (new Gtk.Image.from_icon_name ("zoom-in-symbolic"));
-		top_row.append (zoom_btn);
+		zoom_btn.set_child (new Gtk.Image.from_icon_name ("zoom-fit-best-symbolic"));
+		mappbar.append_menu (zoom_btn);
 
 		// Canvas
 		canvas = new Gtk.DrawingArea ();
@@ -288,35 +300,50 @@ public class IconMakerWindow : Gtk.ApplicationWindow {
 		right_box.set_size_request (300, -1);
 		right_box.set_vexpand (true);
 		right_box.set_hexpand_set (true);
-		right_box.set_margin_top (8);
-		right_box.set_margin_bottom (8);
-		right_box.set_margin_start (18);
-		right_box.set_margin_end (18);
 		main_box.append (right_box);
 
-		var prop_header = new Gtk.Label (null);
-		prop_header.add_css_class ("title-1");
-		prop_header.set_markup ("Properties");
+		var rappbar = new He.AppBar ();
+		rappbar.show_left_title_buttons = false;
+		rappbar.show_right_title_buttons = true;
+		right_box.append (rappbar);
+
+		var prop_header = new Gtk.Label ("Properties");
+		prop_header.add_css_class ("view-title");
 		prop_header.set_halign (Gtk.Align.START);
-		right_box.append (prop_header);
+		rappbar.viewtitle_widget = prop_header;
+
+		// Export
+		var export_btn = new Gtk.Button ();
+		export_btn.set_icon_name ("document-export-symbolic");
+		rappbar.append (export_btn);
 
 		props_area = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
+		props_area.margin_start = 18;
+		props_area.margin_bottom = 18;
+		props_area.margin_end = 18;
 		right_box.append (props_area);
 
 		bg_props_area = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
+		bg_props_area.margin_start = 18;
+		bg_props_area.margin_bottom = 18;
+		bg_props_area.margin_end = 18;
 		right_box.append (bg_props_area);
 
 		// Background properties (right)
+		var canvas_bg_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		canvas_bg_row.add_css_class ("mini-content-block");
 		var bg_side_dialog = new Gtk.ColorDialog ();
 		bg_side_dialog.set_with_alpha (true);
 		bg_side_color_btn = new Gtk.ColorDialogButton (bg_side_dialog);
 		bg_side_color_btn.set_rgba (model.background);
 		bg_side_wall_switch = new Gtk.Switch ();
 		bg_side_wall_switch.set_active (model.use_wallpaper);
-		bg_props_area.append (new Gtk.Label ("Canvas background color:") { xalign = 0.0f });
-		bg_props_area.append (bg_side_color_btn);
+		canvas_bg_row.append (new Gtk.Label ("Background Color") { xalign = 0.0f, hexpand = true });
+		canvas_bg_row.append (bg_side_color_btn);
+		bg_props_area.append (canvas_bg_row);
 		var fill_mode_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
-		fill_mode_label = new Gtk.Label ("Fill type");
+		fill_mode_row.add_css_class ("mini-content-block");
+		fill_mode_label = new Gtk.Label ("Fill Type");
 		fill_mode_label.set_xalign (0.0f);
 		fill_mode_label.set_hexpand (true);
 		fill_mode_row.append (fill_mode_label);
@@ -325,16 +352,21 @@ public class IconMakerWindow : Gtk.ApplicationWindow {
 		fill_mode_row.append (bg_fill_mode_drop);
 		bg_props_area.append (fill_mode_row);
 		bg_gradient_container = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
-		var gradient_color_label = new Gtk.Label ("Gradient end color:");
+		bg_gradient_container.add_css_class ("mini-content-block");
+		var gradient_color_label = new Gtk.Label ("Gradient End Color");
 		gradient_color_label.set_xalign (0.0f);
+		gradient_color_label.set_hexpand (true);
 		var gradient_dialog = new Gtk.ColorDialog ();
 		gradient_dialog.set_with_alpha (true);
 		bg_gradient_end_btn = new Gtk.ColorDialogButton (gradient_dialog);
+		bg_gradient_end_btn.set_halign (Gtk.Align.END);
 		bg_gradient_end_btn.set_rgba (model.gradient_secondary);
-		bg_gradient_container.append (gradient_color_label);
-		bg_gradient_container.append (bg_gradient_end_btn);
+		var gradient_color_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		gradient_color_row.append (gradient_color_label);
+		gradient_color_row.append (bg_gradient_end_btn);
+		bg_gradient_container.append (gradient_color_row);
 		var gradient_angle_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
-		var gradient_angle_label = new Gtk.Label ("Gradient angle");
+		var gradient_angle_label = new Gtk.Label ("Gradient Angle");
 		gradient_angle_label.set_xalign (0.0f);
 		gradient_angle_label.set_hexpand (true);
 		gradient_angle_row.append (gradient_angle_label);
@@ -344,7 +376,8 @@ public class IconMakerWindow : Gtk.ApplicationWindow {
 		bg_gradient_container.append (gradient_angle_row);
 		bg_props_area.append (bg_gradient_container);
 		var effects_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
-		var effects_label = new Gtk.Label ("Raised effect");
+		effects_row.add_css_class ("mini-content-block");
+		var effects_label = new Gtk.Label ("Raised Effect");
 		effects_label.set_xalign (0.0f);
 		effects_label.set_hexpand (true);
 		effects_row.append (effects_label);
@@ -353,7 +386,8 @@ public class IconMakerWindow : Gtk.ApplicationWindow {
 		effects_row.append (bg_effects_switch);
 		bg_props_area.append (effects_row);
 		var frame_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
-		var frame_label = new Gtk.Label ("Toolbox frame");
+		frame_row.add_css_class ("mini-content-block");
+		var frame_label = new Gtk.Label ("Toolbox App Frame");
 		frame_label.set_xalign (0.0f);
 		frame_label.set_hexpand (true);
 		frame_row.append (frame_label);
@@ -362,7 +396,8 @@ public class IconMakerWindow : Gtk.ApplicationWindow {
 		frame_row.append (bg_frame_switch);
 		bg_props_area.append (frame_row);
 		var dev_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
-		var dev_label = new Gtk.Label ("Developer badge");
+		dev_row.add_css_class ("mini-content-block");
+		var dev_label = new Gtk.Label ("Developer Badge");
 		dev_label.set_xalign (0.0f);
 		dev_label.set_hexpand (true);
 		dev_row.append (dev_label);
@@ -372,97 +407,134 @@ public class IconMakerWindow : Gtk.ApplicationWindow {
 		bg_props_area.append (dev_row);
 
 		// Element properties
-		var pos_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		var pos_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
+		pos_box.add_css_class ("mini-content-block");
 		x_entry = new Gtk.SpinButton.with_range (0, 109, 1);
 		y_entry = new Gtk.SpinButton.with_range (0, 109, 1);
-		pos_box.append (new Gtk.Label ("X:"));
-		pos_box.append (x_entry);
-		pos_box.append (new Gtk.Label ("Y:"));
-		pos_box.append (y_entry);
+		var x_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		x_box.append (new Gtk.Label ("X") { xalign = 0.0f, hexpand = true });
+		x_box.append (x_entry);
+		pos_box.append (x_box);
+		var y_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		y_box.append (new Gtk.Label ("Y") { xalign = 0.0f, hexpand = true });
+		y_box.append (y_entry);
+		pos_box.append (y_box);
 		props_area.append (pos_box);
 
-		size_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		size_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
+		size_box.add_css_class ("mini-content-block");
 		w_entry = new Gtk.SpinButton.with_range (1, 109, 1);
 		h_entry = new Gtk.SpinButton.with_range (1, 109, 1);
-		size_box.append (new Gtk.Label ("W:"));
-		size_box.append (w_entry);
-		size_box.append (new Gtk.Label ("H:"));
-		size_box.append (h_entry);
+		var width_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		width_box.append (new Gtk.Label ("Width") { xalign = 0.0f, hexpand = true });
+		width_box.append (w_entry);
+		size_box.append (width_box);
+		var height_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		height_box.append (new Gtk.Label ("Height") { xalign = 0.0f, hexpand = true });
+		height_box.append (h_entry);
+		size_box.append (height_box);
 		props_area.append (size_box);
 
 		line_controls_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		line_controls_box.add_css_class ("mini-content-block");
 		line_length_spin = new Gtk.SpinButton.with_range (1, 156, 1);
 		line_angle_spin = new Gtk.SpinButton.with_range (0, 360, 1);
-		line_controls_box.append (new Gtk.Label ("Length:"));
+		line_controls_box.append (new Gtk.Label ("Length") { xalign = 0.0f, hexpand = true });
 		line_controls_box.append (line_length_spin);
-		line_controls_box.append (new Gtk.Label ("Angle:"));
+		line_controls_box.append (new Gtk.Label ("Angle") { xalign = 0.0f, hexpand = true });
 		line_controls_box.append (line_angle_spin);
 		line_controls_box.set_visible (false);
 		props_area.append (line_controls_box);
 
 		// Fill (hidden for Line)
-		fill_label = new Gtk.Label ("Fill:");
+		var fill_color_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		fill_color_box.add_css_class ("mini-content-block");
+		fill_label = new Gtk.Label ("Fill Color");
+		fill_label.set_xalign (0.0f);
+		fill_label.set_hexpand (true);
 		var fill_dialog = new Gtk.ColorDialog ();
 		fill_dialog.set_with_alpha (false);
 		fill_btn = new Gtk.ColorDialogButton (fill_dialog);
-		props_area.append (fill_label);
-		props_area.append (fill_btn);
+		fill_color_box.append (fill_label);
+		fill_color_box.append (fill_btn);
+		props_area.append (fill_color_box);
 
-		fill_mode_label = new Gtk.Label ("Fill color mode:");
+		// Fill mode
+		var fill_color_mode_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		fill_color_mode_row.add_css_class ("mini-content-block");
+		fill_mode_label = new Gtk.Label ("Fill Color Mode");
 		fill_mode_label.set_xalign (0.0f);
+		fill_mode_label.set_hexpand (true);
 		fill_mode_drop = new Gtk.DropDown.from_strings (new string[] { "Solid", "Gradient" });
-		props_area.append (fill_mode_label);
-		props_area.append (fill_mode_drop);
+		fill_color_mode_row.append (fill_mode_label);
+		fill_color_mode_row.append (fill_mode_drop);
+		props_area.append (fill_color_mode_row);
 
-		fill_gradient_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
+		fill_gradient_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		fill_gradient_box.add_css_class ("mini-content-block");
 		fill_gradient_box.set_visible (false);
-		var fill_gradient_color_label = new Gtk.Label ("Gradient end color:");
+		var fill_gradient_color_label = new Gtk.Label ("Gradient End Color");
 		fill_gradient_color_label.set_xalign (0.0f);
+		fill_gradient_color_label.set_hexpand (true);
 		var fill_gradient_dialog = new Gtk.ColorDialog ();
 		fill_gradient_dialog.set_with_alpha (false);
 		fill_gradient_btn = new Gtk.ColorDialogButton (fill_gradient_dialog);
-		fill_gradient_angle_label = new Gtk.Label ("Gradient angle:");
+		fill_gradient_angle_label = new Gtk.Label ("Gradient Angle");
 		fill_gradient_angle_label.set_xalign (0.0f);
+		fill_gradient_angle_label.set_hexpand (true);
 		fill_gradient_angle_spin = new Gtk.SpinButton.with_range (0, 360, 1);
 		fill_gradient_angle_spin.set_value (0.0);
 		fill_gradient_box.append (fill_gradient_color_label);
 		fill_gradient_box.append (fill_gradient_btn);
-		fill_gradient_box.append (fill_gradient_angle_label);
-		fill_gradient_box.append (fill_gradient_angle_spin);
+		fill_gradient_angle_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		fill_gradient_angle_box.add_css_class ("mini-content-block");
+		fill_gradient_angle_box.set_visible (false);
+		fill_gradient_angle_box.append (fill_gradient_angle_label);
+		fill_gradient_angle_box.append (fill_gradient_angle_spin);
 		props_area.append (fill_gradient_box);
+		props_area.append (fill_gradient_angle_box);
 
 		fill_opacity_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		fill_opacity_box.add_css_class ("mini-content-block");
 		fill_opacity_spin = new Gtk.SpinButton.with_range (0, 100, 1);
-		fill_opacity_box.append (new Gtk.Label ("Fill opacity (%)"));
+		fill_opacity_box.append (new Gtk.Label ("Fill Opacity (%)") { xalign = 0.0f, hexpand = true });
 		fill_opacity_box.append (fill_opacity_spin);
 		props_area.append (fill_opacity_box);
 
 		// Stroke
-		stroke_label = new Gtk.Label ("Stroke:");
+		stroke_color_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		stroke_color_box.add_css_class ("mini-content-block");
+		stroke_label = new Gtk.Label ("Stroke");
+		stroke_label.set_xalign (0.0f);
+		stroke_label.set_hexpand (true);
 		var stroke_dialog = new Gtk.ColorDialog ();
 		stroke_dialog.set_with_alpha (false);
 		stroke_btn = new Gtk.ColorDialogButton (stroke_dialog);
-		props_area.append (stroke_label);
-		props_area.append (stroke_btn);
+		stroke_color_box.append (stroke_label);
+		stroke_color_box.append (stroke_btn);
+		props_area.append (stroke_color_box);
 
 		stroke_opacity_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		stroke_opacity_box.add_css_class ("mini-content-block");
 		stroke_opacity_spin = new Gtk.SpinButton.with_range (0, 100, 1);
-		stroke_opacity_box.append (new Gtk.Label ("Stroke opacity (%)"));
+		stroke_opacity_box.append (new Gtk.Label ("Stroke Opacity (%)") { xalign = 0.0f, hexpand = true });
 		stroke_opacity_box.append (stroke_opacity_spin);
 		props_area.append (stroke_opacity_box);
 
+		stroke_width_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		stroke_width_box.add_css_class ("mini-content-block");
 		stroke_width_spin = new Gtk.SpinButton.with_range (0, 20, 0.5);
 		stroke_width_spin.set_digits (1);
-		props_area.append (new Gtk.Label ("Stroke width:"));
-		props_area.append (stroke_width_spin);
+		stroke_width_box.append (new Gtk.Label ("Stroke Width") { xalign = 0.0f, hexpand = true });
+		stroke_width_box.append (stroke_width_spin);
+		props_area.append (stroke_width_box);
 
+		blend_drop_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		blend_drop_box.add_css_class ("mini-content-block");
+		blend_drop_box.append (new Gtk.Label ("Blend Mode") { xalign = 0.0f, hexpand = true });
 		blend_drop = new Gtk.DropDown.from_strings (blends);
-		props_area.append (new Gtk.Label ("Blend mode:"));
-		props_area.append (blend_drop);
-
-		// Export
-		var export_btn = new Gtk.Button.with_label ("Export SVG");
-		right_box.append (export_btn);
+		blend_drop_box.append (blend_drop);
+		props_area.append (blend_drop_box);
 
 		// Signals
 
@@ -644,6 +716,7 @@ public class IconMakerWindow : Gtk.ApplicationWindow {
 			var el = (IconElement) model.elements.get_item ((uint) model.selected_index);
 			el.use_gradient = (fill_mode_drop.get_selected () == 1u);
 			fill_gradient_box.set_visible (el.use_gradient);
+			fill_gradient_angle_box.set_visible (el.use_gradient);
 			canvas.queue_draw ();
 		});
 
@@ -765,6 +838,7 @@ public class IconMakerWindow : Gtk.ApplicationWindow {
 
 		zoom_scale.value_changed.connect ((s) => {
 			model.zoom = (float) zoom_scale.get_value ();
+			zoom_label.set_label (Math.floor (zoom_scale.get_value () * 100).to_string () + "%");
 			canvas.set_size_request ((int) (128 * model.zoom), (int) (128 * model.zoom));
 			canvas.queue_draw ();
 		});
@@ -824,6 +898,7 @@ public class IconMakerWindow : Gtk.ApplicationWindow {
 			var row = new Gtk.ListBoxRow ();
 			row.set_size_request (-1, 42);
 			var h = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+			h.add_css_class ("mini-content-block");
 			var lbl = new Gtk.Label ("Background");
 			lbl.set_xalign (0.0f);
 			lbl.set_hexpand (true);
@@ -839,7 +914,7 @@ public class IconMakerWindow : Gtk.ApplicationWindow {
 			var row = new Gtk.ListBoxRow ();
 			row.set_size_request (-1, 42);
 			var h = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
-
+			h.add_css_class ("mini-content-block");
 			var lbl = new Gtk.Label (element_label (el));
 			lbl.set_xalign (0.0f);
 			lbl.set_hexpand (true);
@@ -943,8 +1018,6 @@ public class IconMakerWindow : Gtk.ApplicationWindow {
 		heading.set_halign (Gtk.Align.START);
 		content_box.append (heading);
 		var grid = new Gtk.Grid ();
-		grid.set_row_spacing (6);
-		grid.set_column_spacing (6);
 		content_box.append (grid);
 		string[] ramp_labels = {
 			"Red",
@@ -966,7 +1039,7 @@ public class IconMakerWindow : Gtk.ApplicationWindow {
 			"#8E24AA",
 			"#616161"
 		};
-		double[] steps = { 0.0, 0.2, 0.4, 0.6, 0.8, 1.0 };
+		double[] steps = { -0.75, -0.5, -0.25, 0.0, 0.25, 0.50, 0.75 };
 		int ramp_count = ramp_labels.length;
 		int shade_count = steps.length;
 		for (int row = 0; row < ramp_count; row++) {
@@ -974,12 +1047,23 @@ public class IconMakerWindow : Gtk.ApplicationWindow {
 			row_label.set_halign (Gtk.Align.END);
 			row_label.set_valign (Gtk.Align.CENTER);
 			row_label.add_css_class ("dim-label");
+			row_label.set_margin_end (12);
 			grid.attach (row_label, 0, row, 1, 1);
 			Gdk.RGBA base_color = IconiUtils.parse_hex_color (ramp_hex[row]);
 			for (int col = 0; col < shade_count; col++) {
-				Gdk.RGBA shade = IconiUtils.mix_with_white (base_color, steps[col]);
-				var swatch = create_color_swatch_button (shade, popover);
-				grid.attach (swatch, col + 1, row, 1, 1);
+				if (steps[col] > 0.0) {
+					Gdk.RGBA shade = IconiUtils.mix_with_white (base_color, steps[col]);
+					var swatch = create_color_swatch_button (shade, popover);
+					grid.attach (swatch, col + 1, row, 1, 1);
+				} else if (steps[col] < 0.0) {
+					double amount = GLib.Math.fabs (steps[col]);
+					Gdk.RGBA dark = IconiUtils.mix_with_black (base_color, amount);
+					var swatch = create_color_swatch_button (dark, popover);
+					grid.attach (swatch, col + 1, row, 1, 1);
+				} else {
+					var swatch = create_color_swatch_button (base_color, popover);
+					grid.attach (swatch, col + 1, row, 1, 1);
+				}
 			}
 		}
 		return popover;
@@ -1011,9 +1095,11 @@ public class IconMakerWindow : Gtk.ApplicationWindow {
 
 	private Gtk.Button create_color_swatch_button (Gdk.RGBA shade, Gtk.Popover popover) {
 		var swatch_btn = new Gtk.Button ();
+		swatch_btn.add_css_class ("swatch_button");
 		swatch_btn.set_focus_on_click (false);
-		swatch_btn.add_css_class ("flat");
-		swatch_btn.set_size_request (42, 42);
+		swatch_btn.set_size_request (36, 42);
+		swatch_btn.set_halign (Gtk.Align.CENTER);
+		swatch_btn.set_valign (Gtk.Align.CENTER);
 		var area = new Gtk.DrawingArea ();
 		area.set_content_width (42);
 		area.set_content_height (42);
@@ -1022,7 +1108,7 @@ public class IconMakerWindow : Gtk.ApplicationWindow {
 			cr.set_source_rgba (copy.red, copy.green, copy.blue, copy.alpha);
 			cr.rectangle (0.0, 0.0, w, h);
 			cr.fill ();
-			cr.set_source_rgba (0.0, 0.0, 0.0, 0.35);
+			cr.set_source_rgba (0.0, 0.0, 0.0, 0.12);
 			cr.set_line_width (1.0);
 			cr.rectangle (0.5, 0.5, w - 1.0, h - 1.0);
 			cr.stroke ();
@@ -1091,7 +1177,7 @@ public class IconMakerWindow : Gtk.ApplicationWindow {
 		int r = (int) (rd + 0.5);
 		int g = (int) (gd + 0.5);
 		int b = (int) (bd + 0.5);
-		return "background-color: rgba(%d, %d, %d, %.3f);".printf (r, g, b, vb.alpha);
+		return "background: rgba(%d, %d, %d, %.3f);".printf (r, g, b, vb.alpha);
 	}
 
 	private bool should_use_light_view_foreground () {
@@ -1108,7 +1194,7 @@ public class IconMakerWindow : Gtk.ApplicationWindow {
 	}
 
 	private void append_light_foreground_css (GLib.StringBuilder builder) {
-		builder.append (" #center-bg > label, #center-bg > button { color: rgba(255,255,255,1.0); } #center-bg button, #center-bg button * { color: rgba(255,255,255,1.0); } #center-bg entry, #center-bg entry * { color: rgba(255,255,255,1.0); } #center-bg entry { caret-color: rgba(255,255,255,1.0); } #center-bg button { border-color: rgba(255,255,255,0.55); }");
+		builder.append (" #center-bg > label, #center-bg > button { color: rgba(255,255,255,1.0); } #center-bg button { background: rgba(255,255,255,0.32); color: rgba(255,255,255,1.0); } #center-bg entry, #center-bg entry * { background: rgba(255,255,255,0.32); color: rgba(255,255,255,1.0); } #center-bg entry { caret-color: rgba(255,255,255,1.0); } #center-bg button { border-color: rgba(255,255,255,0.55); }");
 	}
 
 	private void setup_wallpaper_settings () {
