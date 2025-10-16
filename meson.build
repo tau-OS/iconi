@@ -3,12 +3,9 @@ project(
   'vala',
   'c',
   version: '0.1.0',
-  default_options: ['warning_level=2'],
 )
 # Convert the app id to a GNOME style path identifier
 path_identifier = '/' + meson.project_name().replace('.', '/') + '/'
-
-subproject('blueprint-compiler', required: false)
 
 gnome = import('gnome')
 i18n = import('i18n')

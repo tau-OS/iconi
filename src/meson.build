@@ -32,28 +32,19 @@ add_project_arguments(
 sources = [
   gresources,
   'Config.vapi',
-  'App.vala',
-  'Window.vala',
-  'Utils.vala',
+  'main.vala',
 ]
 
 dependencies = [
-  dependency('gio-2.0'),
   dependency('gtk4'),
-  dependency('glib-2.0'),
-  dependency('gobject-2.0'),
   dependency('gee-0.8'),
   dependency('libhelium-1'),
-  dependency('gmodule-2.0'),
-  dependency('librsvg-2.0', version: '>= 2.52.0'),
-  dependency('libxml-2.0'),
   meson.get_compiler('c').find_library('m', required: true),
 ]
 
 executable(
   meson.project_name(),
-  [blueprints_workaround, sources],
+  [sources],
   dependencies: dependencies,
-  vala_args: ['--pkg', 'libxml-2.0'],
   install: true,
 )

@@ -3,7 +3,6 @@
 # For your convenience, we included the essentials. Make sure to rename them (and modify the contents) to use your actual app id.
 
 subdir('icons')
-subdir('ui')
 
 # A desktop file provides basic information about the application to the shell.
 # This allows the shell to display your application's name, icon, and other metadata.
@@ -100,7 +99,6 @@ gresources = gnome.compile_resources(
     },
   ),
   source_dir: meson.current_build_dir(),
-  dependencies: blueprints,
   c_name: 'resources',
   install_dir: get_option('datadir') / meson.project_name(),
 )
