@@ -32,13 +32,18 @@ add_project_arguments(
 sources = [
   gresources,
   'Config.vapi',
-  'main.vala',
+  'Models.vala',
+  'Utils.vala',
+  'Renderer.vala',
+  'Window.vala',
+  'Application.vala',
 ]
 
 dependencies = [
   dependency('gtk4'),
   dependency('gee-0.8'),
   dependency('libhelium-1'),
+  dependency('librsvg-2.0'),
   meson.get_compiler('c').find_library('m', required: true),
 ]
 
