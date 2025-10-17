@@ -1,3 +1,5 @@
+public delegate void ColorPickerCallback (Gdk.RGBA color);
+
 public class IconMakerWindow : He.ApplicationWindow {
 	private IconModel model;
 	private IconRenderer renderer;
@@ -9,6 +11,8 @@ public class IconMakerWindow : He.ApplicationWindow {
 	private Gtk.Box props_area;
 	private Gtk.Box bg_props_area;
 	private Gtk.Box center_box;
+	private Gtk.Box right_box;
+	private He.AppBar mappbar;
 
 	private Gtk.SpinButton x_entry;
 	private Gtk.SpinButton y_entry;
@@ -16,8 +20,8 @@ public class IconMakerWindow : He.ApplicationWindow {
 	private Gtk.SpinButton h_entry;
 	private Gtk.Box size_box;
 
-	private Gtk.ColorDialogButton fill_btn;
-	private Gtk.ColorDialogButton stroke_btn;
+	private Gtk.Button fill_btn;
+	private Gtk.Button stroke_btn;
 	private Gtk.SpinButton fill_opacity_spin;
 	private Gtk.SpinButton stroke_opacity_spin;
 	private Gtk.SpinButton stroke_width_spin;
@@ -31,7 +35,7 @@ public class IconMakerWindow : He.ApplicationWindow {
 	private Gtk.Label fill_mode_label;
 	private Gtk.Box fill_gradient_box;
 	private Gtk.Box fill_gradient_angle_box;
-	private Gtk.ColorDialogButton fill_gradient_btn;
+	private Gtk.Button fill_gradient_btn;
 	private Gtk.SpinButton fill_gradient_angle_spin;
 	private Gtk.Label fill_gradient_angle_label;
 	private Gtk.Box line_controls_box;
@@ -43,10 +47,10 @@ public class IconMakerWindow : He.ApplicationWindow {
 	private string[] blends = { "normal", "multiply", "screen", "overlay", "darken", "lighten", "color-dodge", "color-burn", "hard-light", "soft-light", "difference", "exclusion", "hue", "saturation", "color", "luminosity" };
 	private string[] bg_fill_modes = { "Solid", "Gradient" };
 
-	private Gtk.ColorDialogButton bg_side_color_btn;
+	private Gtk.Button bg_side_color_btn;
 	private Gtk.Switch bg_side_wall_switch;
 	private Gtk.DropDown bg_fill_mode_drop;
-	private Gtk.ColorDialogButton bg_gradient_end_btn;
+	private Gtk.Button bg_gradient_end_btn;
 	private Gtk.SpinButton bg_gradient_angle_spin;
 	private Gtk.Box bg_gradient_container;
 
@@ -55,10 +59,6 @@ public class IconMakerWindow : He.ApplicationWindow {
 	private Gtk.Switch bg_effects_switch;
 	private Gtk.Switch bg_frame_switch;
 	private Gtk.Switch bg_dev_switch;
-	private Gtk.ToggleButton view_wall_toggle;
-	private Gtk.Button view_color_button;
-	private Gtk.DrawingArea view_color_preview;
-	private Gtk.Popover view_color_popover;
 
 	private bool updating_properties = false;
 	private Gtk.CssProvider? view_bg_css;
@@ -83,7 +83,6 @@ public class IconMakerWindow : He.ApplicationWindow {
 
 	private void setup_ui () {
 		var main_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 8);
-		set_child (main_box);
 
 		// Global key controller on main_box
 		var key_controller = new Gtk.EventControllerKey ();
@@ -103,7 +102,8 @@ public class IconMakerWindow : He.ApplicationWindow {
 		left_box.set_size_request (260, -1);
 		left_box.set_vexpand (true);
 		left_box.set_hexpand_set (true);
-		main_box.append (left_box);
+		left_box.set_halign (Gtk.Align.START);
+		left_box.add_css_class ("sidebar-view");
 
 		var appbar = new He.AppBar ();
 		appbar.show_left_title_buttons = true;
@@ -149,11 +149,13 @@ public class IconMakerWindow : He.ApplicationWindow {
 		center_box.set_hexpand (true);
 		center_box.set_vexpand (true);
 		center_box.set_name ("center-bg");
-		main_box.append (center_box);
 
-		var mappbar = new He.AppBar ();
+		mappbar = new He.AppBar ();
 		mappbar.show_left_title_buttons = false;
 		mappbar.show_right_title_buttons = false;
+		mappbar.set_margin_end (342);
+		mappbar.set_margin_start (272);
+		mappbar.add_css_class ("main-appbar");
 		center_box.append (mappbar);
 
 		// Name label <-> entry via stack
@@ -162,10 +164,11 @@ public class IconMakerWindow : He.ApplicationWindow {
 		name_label.set_halign (Gtk.Align.START);
 		name_label.set_valign (Gtk.Align.CENTER);
 
-		var name_entry = new Gtk.Entry ();
-		name_entry.set_text (model.name);
+		var name_entry = new He.TextField ();
+		name_entry.is_outline = true;
+		name_entry.get_internal_entry ().set_text (model.name);
 		name_entry.set_halign (Gtk.Align.START);
-		name_entry.set_size_request (300, -1);
+		name_entry.set_size_request (180, -1);
 
 		var name_stack = new Gtk.Stack ();
 		name_stack.add_named (name_label, "label");
@@ -177,75 +180,125 @@ public class IconMakerWindow : He.ApplicationWindow {
 		name_click.released.connect ((g, n_press, x, y) => {
 			name_stack.set_visible_child_name ("entry");
 			name_entry.grab_focus ();
-			name_entry.select_region (0, -1);
+			name_entry.get_internal_entry ().select_region (0, -1);
 		});
 		var focus_ctl = new Gtk.EventControllerFocus ();
-		name_entry.add_controller (focus_ctl);
-		focus_ctl.leave.connect (() => { commit_name (name_entry, name_label, name_stack); });
-		name_entry.activate.connect (() => { commit_name (name_entry, name_label, name_stack); });
+		name_entry.get_internal_entry ().add_controller (focus_ctl);
+		focus_ctl.leave.connect (() => { commit_name (name_entry.get_internal_entry (), name_label, name_stack); });
+		name_entry.get_internal_entry ().activate.connect (() => { commit_name (name_entry.get_internal_entry (), name_label, name_stack); });
 
 		mappbar.viewtitle_widget = name_stack;
 
-		view_wall_toggle = new Gtk.ToggleButton ();
-		view_wall_toggle.set_valign (Gtk.Align.CENTER);
-		view_wall_toggle.set_tooltip_text ("Show system wallpaper behind preview");
-		var wall_toggle_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 4);
-		wall_toggle_box.set_margin_start (10);
-		wall_toggle_box.set_margin_end (10);
-		wall_toggle_box.set_valign (Gtk.Align.CENTER);
-		wall_toggle_box.append (new Gtk.Image.from_icon_name ("preferences-desktop-wallpaper-symbolic"));
-		view_wall_toggle.set_child (wall_toggle_box);
+		// View background selector buttons
+		var view_bg_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		view_bg_box.set_valign (Gtk.Align.CENTER);
+		view_bg_box.add_css_class ("linked");
 
-		view_color_button = new Gtk.Button ();
-		view_color_button.set_valign (Gtk.Align.CENTER);
-		view_color_button.set_tooltip_text ("Choose preview background color");
-		var color_toggle_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
-		color_toggle_box.set_margin_start (12);
-		color_toggle_box.set_margin_end (10);
-		color_toggle_box.set_valign (Gtk.Align.CENTER);
-		view_color_preview = new Gtk.DrawingArea ();
-		view_color_preview.set_content_width (32);
-		view_color_preview.set_content_height (18);
-		view_color_preview.set_valign (Gtk.Align.CENTER);
-		view_color_preview.set_draw_func ((area, cr, width, height) => {
-			double w = width;
+		// Wallpaper button
+		var wallpaper_btn = new Gtk.ToggleButton ();
+		wallpaper_btn.add_css_class ("wallpaper-btn");
+		wallpaper_btn.set_tooltip_text ("Show system wallpaper behind preview");
+		var wallpaper_icon = new Gtk.DrawingArea ();
+		wallpaper_icon.set_content_width (32);
+		wallpaper_icon.set_content_height (30);
+		wallpaper_icon.set_draw_func ((area, cr, width, height) => {
+			double w = width - 2;
 			double h = height;
-			if (w <= 0.0 || h <= 0.0)return;
-			var color = model.view_background;
-			cr.set_source_rgba (color.red, color.green, color.blue, color.alpha);
-			cr.rectangle (0.0, 0.0, w, h);
-			cr.fill ();
-			cr.set_source_rgba (0.0, 0.0, 0.0, 0.35);
-			cr.set_line_width (1.0);
-			cr.rectangle (0.5, 0.5, w - 1.0, h - 1.0);
+			double cx = w / 2.0;
+			double cy = h / 2.0;
+			double r = GLib.Math.fmin (w, h) / 2.0;
+
+			cr.save ();
+			cr.arc (cx + 1, cy, r, 0.0, 2.0 * GLib.Math.PI);
+			cr.clip ();
+
+			string? wp_uri = get_preferred_wallpaper_uri ();
+			if (wp_uri != null && wp_uri.has_prefix ("file://")) {
+				string path = wp_uri.substring (7);
+				try {
+					var pixbuf = new Gdk.Pixbuf.from_file (path);
+					int pw = pixbuf.get_width ();
+					int ph = pixbuf.get_height ();
+
+					double scale = GLib.Math.fmax (w / (double) pw, h / (double) ph);
+					double sw = pw * scale;
+					double sh = ph * scale;
+					double ox = (w - sw) / 2.0;
+					double oy = (h - sh) / 2.0;
+
+					cr.scale (scale, scale);
+					Gdk.cairo_set_source_pixbuf (cr, pixbuf, ox / scale, oy / scale);
+					cr.paint ();
+				} catch (Error e) {
+					cr.set_source_rgba (0.5, 0.5, 0.5, 1.0);
+					cr.paint ();
+				}
+			} else {
+				cr.set_source_rgba (0.5, 0.5, 0.5, 1.0);
+				cr.paint ();
+			}
+
+			cr.restore ();
+		});
+		wallpaper_btn.set_child (wallpaper_icon);
+		view_bg_box.append (wallpaper_btn);
+
+		// Gray button
+		var gray_btn = new Gtk.ToggleButton ();
+		gray_btn.add_css_class ("gray-btn");
+		gray_btn.set_tooltip_text ("Show gray background behind preview");
+		var gray_icon = new Gtk.DrawingArea ();
+		gray_icon.set_content_width (32);
+		gray_icon.set_content_height (30);
+		gray_icon.set_draw_func ((area, cr, width, height) => {
+			double w = width - 2;
+			double h = height;
+			double cx = w / 2.0;
+			double cy = h / 2.0;
+			double r = GLib.Math.fmin (w, h) / 2.0;
+
+			cr.arc (cx + 1, cy, r, 0.0, 2.0 * GLib.Math.PI);
+			cr.set_source_rgb (0.533, 0.533, 0.533);
+			cr.fill_preserve ();
 			cr.stroke ();
 		});
-		color_toggle_box.append (view_color_preview);
-		view_color_button.set_child (color_toggle_box);
+		gray_btn.set_child (gray_icon);
+		view_bg_box.append (gray_btn);
 
-		mappbar.append_toggle (view_wall_toggle);
-		mappbar.append (view_color_button);
+		mappbar.append (view_bg_box);
 
-		view_color_popover = create_view_color_popover ();
-		view_color_popover.set_parent (view_color_button);
-
-		view_wall_toggle.toggled.connect (() => {
+		wallpaper_btn.toggled.connect (() => {
 			if (updating_properties)return;
-			bool state = view_wall_toggle.get_active ();
-			apply_wallpaper_state (state);
+			if (wallpaper_btn.get_active ()) {
+				updating_properties = true;
+				gray_btn.set_active (false);
+				updating_properties = false;
+				apply_wallpaper_state (true);
+				wallpaper_icon.queue_draw ();
+				gray_icon.queue_draw ();
+			}
 		});
 
-		view_color_button.clicked.connect (() => {
+		gray_btn.toggled.connect (() => {
 			if (updating_properties)return;
-			apply_wallpaper_state (false);
-			toggle_view_color_popover ();
+			if (gray_btn.get_active ()) {
+				updating_properties = true;
+				wallpaper_btn.set_active (false);
+				updating_properties = false;
+				apply_wallpaper_state (false);
+				wallpaper_icon.queue_draw ();
+				gray_icon.queue_draw ();
+			}
 		});
 
 		bool toggle_prev = updating_properties;
 		updating_properties = true;
-		view_wall_toggle.set_active (model.use_wallpaper);
+		if (model.use_wallpaper) {
+			wallpaper_btn.set_active (true);
+		} else {
+			gray_btn.set_active (true);
+		}
 		updating_properties = toggle_prev;
-		update_view_color_preview ();
 
 		// Zoom
 		zoom_scale = new Gtk.Scale.with_range (Gtk.Orientation.HORIZONTAL, 0.25, 3.0, 0.25);
@@ -276,6 +329,8 @@ public class IconMakerWindow : He.ApplicationWindow {
 
 		// Canvas
 		canvas = new Gtk.DrawingArea ();
+		canvas.set_margin_end (342);
+		canvas.set_margin_start (272);
 		canvas.set_content_width (SVG_VIEWPORT_SIZE);
 		canvas.set_content_height (SVG_VIEWPORT_SIZE);
 		canvas.set_hexpand (true);
@@ -296,11 +351,12 @@ public class IconMakerWindow : He.ApplicationWindow {
 		});
 
 		// RIGHT SIDEBAR
-		var right_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
+		right_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
 		right_box.set_size_request (300, -1);
 		right_box.set_vexpand (true);
 		right_box.set_hexpand_set (true);
-		main_box.append (right_box);
+		right_box.set_halign (Gtk.Align.END);
+		right_box.add_css_class ("inspector-view");
 
 		var rappbar = new He.AppBar ();
 		rappbar.show_left_title_buttons = false;
@@ -317,25 +373,34 @@ public class IconMakerWindow : He.ApplicationWindow {
 		export_btn.set_icon_name ("document-export-symbolic");
 		rappbar.append (export_btn);
 
+		// Properties area
+		var main_props_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
+		main_props_box.set_vexpand (true);
+		main_props_box.set_hexpand (true);
+
 		props_area = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
+		props_area.set_size_request (300, -1);
 		props_area.margin_start = 18;
 		props_area.margin_bottom = 18;
 		props_area.margin_end = 18;
-		right_box.append (props_area);
+		main_props_box.append (props_area);
 
 		bg_props_area = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
+		bg_props_area.set_size_request (300, -1);
 		bg_props_area.margin_start = 18;
 		bg_props_area.margin_bottom = 18;
 		bg_props_area.margin_end = 18;
-		right_box.append (bg_props_area);
+		main_props_box.append (bg_props_area);
+
+		var scrolled = new Gtk.ScrolledWindow ();
+		scrolled.set_policy (Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
+		scrolled.set_child (main_props_box);
+		right_box.append (scrolled);
 
 		// Background properties (right)
 		var canvas_bg_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
 		canvas_bg_row.add_css_class ("mini-content-block");
-		var bg_side_dialog = new Gtk.ColorDialog ();
-		bg_side_dialog.set_with_alpha (true);
-		bg_side_color_btn = new Gtk.ColorDialogButton (bg_side_dialog);
-		bg_side_color_btn.set_rgba (model.background);
+		bg_side_color_btn = create_color_button (model.background);
 		bg_side_wall_switch = new Gtk.Switch ();
 		bg_side_wall_switch.set_active (model.use_wallpaper);
 		canvas_bg_row.append (new Gtk.Label ("Background Color") { xalign = 0.0f, hexpand = true });
@@ -356,11 +421,8 @@ public class IconMakerWindow : He.ApplicationWindow {
 		var gradient_color_label = new Gtk.Label ("Gradient End Color");
 		gradient_color_label.set_xalign (0.0f);
 		gradient_color_label.set_hexpand (true);
-		var gradient_dialog = new Gtk.ColorDialog ();
-		gradient_dialog.set_with_alpha (true);
-		bg_gradient_end_btn = new Gtk.ColorDialogButton (gradient_dialog);
+		bg_gradient_end_btn = create_color_button (model.gradient_secondary);
 		bg_gradient_end_btn.set_halign (Gtk.Align.END);
-		bg_gradient_end_btn.set_rgba (model.gradient_secondary);
 		var gradient_color_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
 		gradient_color_row.append (gradient_color_label);
 		gradient_color_row.append (bg_gradient_end_btn);
@@ -452,9 +514,9 @@ public class IconMakerWindow : He.ApplicationWindow {
 		fill_label = new Gtk.Label ("Fill Color");
 		fill_label.set_xalign (0.0f);
 		fill_label.set_hexpand (true);
-		var fill_dialog = new Gtk.ColorDialog ();
-		fill_dialog.set_with_alpha (false);
-		fill_btn = new Gtk.ColorDialogButton (fill_dialog);
+		Gdk.RGBA default_fill = { 0 };
+		default_fill.parse ("#ffffff");
+		fill_btn = create_color_button (default_fill);
 		fill_color_box.append (fill_label);
 		fill_color_box.append (fill_btn);
 		props_area.append (fill_color_box);
@@ -476,9 +538,9 @@ public class IconMakerWindow : He.ApplicationWindow {
 		var fill_gradient_color_label = new Gtk.Label ("Gradient End Color");
 		fill_gradient_color_label.set_xalign (0.0f);
 		fill_gradient_color_label.set_hexpand (true);
-		var fill_gradient_dialog = new Gtk.ColorDialog ();
-		fill_gradient_dialog.set_with_alpha (false);
-		fill_gradient_btn = new Gtk.ColorDialogButton (fill_gradient_dialog);
+		Gdk.RGBA default_gradient = { 0 };
+		default_gradient.parse ("#888888");
+		fill_gradient_btn = create_color_button (default_gradient);
 		fill_gradient_angle_label = new Gtk.Label ("Gradient Angle");
 		fill_gradient_angle_label.set_xalign (0.0f);
 		fill_gradient_angle_label.set_hexpand (true);
@@ -507,9 +569,9 @@ public class IconMakerWindow : He.ApplicationWindow {
 		stroke_label = new Gtk.Label ("Stroke");
 		stroke_label.set_xalign (0.0f);
 		stroke_label.set_hexpand (true);
-		var stroke_dialog = new Gtk.ColorDialog ();
-		stroke_dialog.set_with_alpha (false);
-		stroke_btn = new Gtk.ColorDialogButton (stroke_dialog);
+		Gdk.RGBA default_stroke = { 0 };
+		default_stroke.parse ("#000000");
+		stroke_btn = create_color_button (default_stroke);
 		stroke_color_box.append (stroke_label);
 		stroke_color_box.append (stroke_btn);
 		props_area.append (stroke_color_box);
@@ -675,38 +737,40 @@ public class IconMakerWindow : He.ApplicationWindow {
 			canvas.queue_draw ();
 		});
 
-		fill_btn.notify.connect ((pspec) => {
+		fill_btn.clicked.connect (() => {
 			if (updating_properties)return;
-			if (pspec.name != "rgba")return;
 			if (model.selected_index < 0)return;
 			var el = (IconElement) model.elements.get_item ((uint) model.selected_index);
 			if (el.type == ElementType.LINE)return;
-			var rgba = fill_btn.get_rgba ();
-			float a = (float) (fill_opacity_spin.get_value () / 100.0);
-			a = IconiUtils.clampf (a, 0.0f, 1.0f);
-			rgba.alpha = a;
-			el.fill = rgba;
-			var grad = el.gradient_secondary;
-			grad.alpha = rgba.alpha;
-			el.gradient_secondary = grad;
-			canvas.queue_draw ();
+			show_color_picker_popover (fill_btn, get_color_button_color (fill_btn), (new_color) => {
+				float a = (float) (fill_opacity_spin.get_value () / 100.0);
+				a = IconiUtils.clampf (a, 0.0f, 1.0f);
+				new_color.alpha = a;
+				el.fill = new_color;
+				var grad = el.gradient_secondary;
+				grad.alpha = new_color.alpha;
+				el.gradient_secondary = grad;
+				update_color_button (fill_btn, new_color);
+				canvas.queue_draw ();
+			});
 		});
-		stroke_btn.notify.connect ((pspec) => {
+		stroke_btn.clicked.connect (() => {
 			if (updating_properties)return;
-			if (pspec.name != "rgba")return;
 			if (model.selected_index < 0)return;
 			var el = (IconElement) model.elements.get_item ((uint) model.selected_index);
-			var rgba = stroke_btn.get_rgba ();
-			float a = (float) (stroke_opacity_spin.get_value () / 100.0);
-			a = IconiUtils.clampf (a, 0.0f, 1.0f);
-			rgba.alpha = a;
-			el.stroke = rgba;
-			if (el.type == ElementType.LINE) {
-				var grad = el.gradient_secondary;
-				grad.alpha = rgba.alpha;
-				el.gradient_secondary = grad;
-			}
-			canvas.queue_draw ();
+			show_color_picker_popover (stroke_btn, get_color_button_color (stroke_btn), (new_color) => {
+				float a = (float) (stroke_opacity_spin.get_value () / 100.0);
+				a = IconiUtils.clampf (a, 0.0f, 1.0f);
+				new_color.alpha = a;
+				el.stroke = new_color;
+				if (el.type == ElementType.LINE) {
+					var grad = el.gradient_secondary;
+					grad.alpha = new_color.alpha;
+					el.gradient_secondary = grad;
+				}
+				update_color_button (stroke_btn, new_color);
+				canvas.queue_draw ();
+			});
 		});
 
 		fill_mode_drop.notify.connect ((pspec) => {
@@ -720,19 +784,20 @@ public class IconMakerWindow : He.ApplicationWindow {
 			canvas.queue_draw ();
 		});
 
-		fill_gradient_btn.notify.connect ((pspec) => {
+		fill_gradient_btn.clicked.connect (() => {
 			if (updating_properties)return;
-			if (pspec.name != "rgba")return;
 			if (model.selected_index < 0)return;
 			var el = (IconElement) model.elements.get_item ((uint) model.selected_index);
-			var rgba = fill_gradient_btn.get_rgba ();
-			if (el.type == ElementType.LINE) {
-				rgba.alpha = el.stroke.alpha;
-			} else {
-				rgba.alpha = el.fill.alpha;
-			}
-			el.gradient_secondary = rgba;
-			canvas.queue_draw ();
+			show_color_picker_popover (fill_gradient_btn, get_color_button_color (fill_gradient_btn), (new_color) => {
+				if (el.type == ElementType.LINE) {
+					new_color.alpha = el.stroke.alpha;
+				} else {
+					new_color.alpha = el.fill.alpha;
+				}
+				el.gradient_secondary = new_color;
+				update_color_button (fill_gradient_btn, new_color);
+				canvas.queue_draw ();
+			});
 		});
 
 		fill_gradient_angle_spin.value_changed.connect (() => {
@@ -795,10 +860,11 @@ public class IconMakerWindow : He.ApplicationWindow {
 			sync_gradient_controls_visibility ();
 			canvas.queue_draw ();
 		});
-		bg_gradient_end_btn.notify.connect ((pspec) => {
+		bg_gradient_end_btn.clicked.connect (() => {
 			if (updating_properties)return;
-			if (pspec.name != "rgba")return;
-			update_gradient_secondary_color (bg_gradient_end_btn.get_rgba ());
+			show_color_picker_popover (bg_gradient_end_btn, get_color_button_color (bg_gradient_end_btn), (new_color) => {
+				update_gradient_secondary_color (new_color);
+			});
 		});
 		bg_gradient_angle_spin.value_changed.connect (() => {
 			if (updating_properties)return;
@@ -807,10 +873,11 @@ public class IconMakerWindow : He.ApplicationWindow {
 				canvas.queue_draw ();
 			}
 		});
-		bg_side_color_btn.notify.connect ((pspec) => {
+		bg_side_color_btn.clicked.connect (() => {
 			if (updating_properties)return;
-			if (pspec.name != "rgba")return;
-			update_bg_color (bg_side_color_btn.get_rgba ());
+			show_color_picker_popover (bg_side_color_btn, get_color_button_color (bg_side_color_btn), (new_color) => {
+				update_bg_color (new_color);
+			});
 		});
 		bg_side_wall_switch.state_set.connect ((w, state) => {
 			if (updating_properties)return false;
@@ -872,16 +939,30 @@ public class IconMakerWindow : He.ApplicationWindow {
 
 		sync_gradient_controls_visibility ();
 		apply_wallpaper_state (model.use_wallpaper);
-		update_view_background_color (model.view_background);
 		props_area.set_visible (false);
 		bg_props_area.set_visible (false);
+		right_box.set_visible (false);
+		update_sidebar_visibility (false);
 		refresh_listbox ();
+
+		main_box.append (center_box);
+
+		var overlay = new Gtk.Overlay ();
+		overlay.set_hexpand (true);
+		overlay.set_vexpand (true);
+		overlay.set_halign (Gtk.Align.FILL);
+		overlay.set_valign (Gtk.Align.FILL);
+		overlay.set_child (main_box);
+		overlay.add_overlay (left_box);
+		overlay.add_overlay (right_box);
+		this.set_child (overlay);
+
 		this.present ();
 	}
 
 	// Helpers as private methods
 
-	private void commit_name (Gtk.Entry entry, Gtk.Label label, Gtk.Stack stack) {
+	private void commit_name (Gtk.Text entry, Gtk.Label label, Gtk.Stack stack) {
 		model.name = entry.get_text ();
 		label.set_text (model.name);
 		stack.set_visible_child_name ("label");
@@ -1003,32 +1084,67 @@ public class IconMakerWindow : He.ApplicationWindow {
 		canvas.queue_draw ();
 	}
 
-	private Gtk.Popover create_view_color_popover () {
+	private Gtk.Button create_color_button (Gdk.RGBA initial_color) {
+		var btn = new Gtk.Button ();
+		btn.set_size_request (48, 32);
+		var area = new Gtk.DrawingArea ();
+		area.set_content_width (48);
+		area.set_content_height (32);
+		btn.set_data<Gdk.RGBA?> ("current_color", initial_color);
+		area.set_draw_func ((da, cr, w, h) => {
+			Gdk.RGBA? stored_color = btn.get_data<Gdk.RGBA?> ("current_color");
+			if (stored_color == null) {
+				stored_color = initial_color;
+			}
+			cr.set_source_rgba (stored_color.red, stored_color.green, stored_color.blue, stored_color.alpha);
+			cr.rectangle (0.0, 0.0, w, h);
+			cr.fill ();
+			cr.set_source_rgba (0.0, 0.0, 0.0, 0.25);
+			cr.set_line_width (1.0);
+			cr.rectangle (0.5, 0.5, w - 1.0, h - 1.0);
+			cr.stroke ();
+		});
+		btn.set_child (area);
+		btn.set_data ("color_area", area);
+		return btn;
+	}
+
+	private void update_color_button (Gtk.Button btn, Gdk.RGBA color) {
+		btn.set_data<Gdk.RGBA?> ("current_color", color);
+		var area = btn.get_data<Gtk.DrawingArea> ("color_area");
+		if (area != null) {
+			area.queue_draw ();
+		}
+	}
+
+	private Gdk.RGBA get_color_button_color (Gtk.Button btn) {
+		Gdk.RGBA? color = btn.get_data<Gdk.RGBA?> ("current_color");
+		if (color != null) {
+			return color;
+		}
+		Gdk.RGBA fallback = { 0 };
+		fallback.parse ("#000000");
+		return fallback;
+	}
+
+	private void show_color_picker_popover (Gtk.Widget parent, Gdk.RGBA current_color, owned ColorPickerCallback callback) {
 		var popover = new Gtk.Popover ();
 		popover.set_autohide (true);
-		popover.set_has_arrow (true);
+		popover.set_has_arrow (false);
 		popover.set_position (Gtk.PositionType.BOTTOM);
-		var content_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 8);
+
+		var content_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 12);
 		content_box.set_margin_top (12);
 		content_box.set_margin_bottom (12);
 		content_box.set_margin_start (16);
 		content_box.set_margin_end (16);
 		popover.set_child (content_box);
-		var heading = new Gtk.Label ("Pick a preview background swatch");
-		heading.set_halign (Gtk.Align.START);
-		content_box.append (heading);
+
 		var grid = new Gtk.Grid ();
+		grid.set_column_spacing (4);
+		grid.set_row_spacing (4);
 		content_box.append (grid);
-		string[] ramp_labels = {
-			"Red",
-			"Orange",
-			"Yellow",
-			"Green",
-			"Blue",
-			"Indigo",
-			"Violet",
-			"Gray"
-		};
+
 		string[] ramp_hex = {
 			"#E25480",
 			"#F99E5C",
@@ -1040,161 +1156,117 @@ public class IconMakerWindow : He.ApplicationWindow {
 			"#BEBEC7"
 		};
 		double[] steps = { -0.75, -0.5, -0.25, 0.0, 0.25, 0.50, 0.75 };
-		int ramp_count = ramp_labels.length;
+		int ramp_count = ramp_hex.length;
 		int shade_count = steps.length;
+
+		Gdk.RGBA selected_color = current_color;
+
 		for (int row = 0; row < ramp_count; row++) {
-			var row_label = new Gtk.Label (ramp_labels[row]);
-			row_label.set_halign (Gtk.Align.END);
-			row_label.set_valign (Gtk.Align.CENTER);
-			row_label.add_css_class ("dim-label");
-			row_label.set_margin_end (12);
-			grid.attach (row_label, 0, row, 1, 1);
 			Gdk.RGBA base_color = IconiUtils.parse_hex_color (ramp_hex[row]);
 			for (int col = 0; col < shade_count; col++) {
+				Gdk.RGBA shade;
 				if (steps[col] > 0.0) {
-					Gdk.RGBA shade = IconiUtils.mix_with_white (base_color, steps[col]);
-					var swatch = create_color_swatch_button (shade, popover);
-					grid.attach (swatch, col + 1, row, 1, 1);
+					shade = IconiUtils.mix_with_white (base_color, steps[col]);
 				} else if (steps[col] < 0.0) {
 					double amount = GLib.Math.fabs (steps[col]);
-					Gdk.RGBA dark = IconiUtils.mix_with_black (base_color, amount);
-					var swatch = create_color_swatch_button (dark, popover);
-					grid.attach (swatch, col + 1, row, 1, 1);
+					shade = IconiUtils.mix_with_black (base_color, amount);
 				} else {
-					var swatch = create_color_swatch_button (base_color, popover);
-					grid.attach (swatch, col + 1, row, 1, 1);
+					shade = base_color;
 				}
+
+				var swatch_btn = new Gtk.Button ();
+				swatch_btn.add_css_class ("swatch_button");
+				swatch_btn.set_focus_on_click (false);
+				swatch_btn.set_size_request (42, 42);
+				swatch_btn.set_halign (Gtk.Align.CENTER);
+				swatch_btn.set_valign (Gtk.Align.CENTER);
+
+				var area = new Gtk.DrawingArea ();
+				area.set_content_width (42);
+				area.set_content_height (42);
+				Gdk.RGBA copy = shade;
+				area.set_draw_func ((da, cr, w, h) => {
+					cr.set_source_rgba (copy.red, copy.green, copy.blue, copy.alpha);
+					cr.rectangle (0.0, 0.0, w, h);
+					cr.fill ();
+					cr.set_source_rgba (0.0, 0.0, 0.0, 0.12);
+					cr.set_line_width (1.0);
+					cr.rectangle (0.5, 0.5, w - 1.0, h - 1.0);
+					cr.stroke ();
+				});
+				swatch_btn.set_child (area);
+				swatch_btn.clicked.connect (() => {
+					selected_color = copy;
+					callback (selected_color);
+					popover.popdown ();
+				});
+				grid.attach (swatch_btn, col, row, 1, 1);
 			}
 		}
-		return popover;
-	}
 
-	private void toggle_view_color_popover () {
-		if (view_color_popover.get_visible ()) {
-			view_color_popover.popdown ();
-			return;
-		}
-		update_view_color_popover_target ();
-		view_color_popover.popup ();
-	}
+		var button_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		button_box.set_halign (Gtk.Align.END);
+		content_box.append (button_box);
 
-	private void update_view_color_popover_target () {
-		Graphene.Rect bounds;
-		if (!view_color_preview.compute_bounds (view_color_button, out bounds))return;
-		Gdk.Rectangle rect = {};
-		double origin_x = bounds.origin.x;
-		double origin_y = bounds.origin.y;
-		double width_d = GLib.Math.fmax (1.0, GLib.Math.ceil (bounds.size.width));
-		double height_d = GLib.Math.fmax (1.0, GLib.Math.ceil (bounds.size.height));
-		rect.x = (int) GLib.Math.floor (origin_x);
-		rect.y = (int) GLib.Math.floor (origin_y);
-		rect.width = (int) GLib.Math.floor (width_d);
-		rect.height = (int) GLib.Math.floor (height_d);
-		view_color_popover.set_pointing_to (rect);
-	}
-
-	private Gtk.Button create_color_swatch_button (Gdk.RGBA shade, Gtk.Popover popover) {
-		var swatch_btn = new Gtk.Button ();
-		swatch_btn.add_css_class ("swatch_button");
-		swatch_btn.set_focus_on_click (false);
-		swatch_btn.set_size_request (36, 42);
-		swatch_btn.set_halign (Gtk.Align.CENTER);
-		swatch_btn.set_valign (Gtk.Align.CENTER);
-		var area = new Gtk.DrawingArea ();
-		area.set_content_width (42);
-		area.set_content_height (42);
-		Gdk.RGBA copy = shade;
-		area.set_draw_func ((da, cr, w, h) => {
-			cr.set_source_rgba (copy.red, copy.green, copy.blue, copy.alpha);
-			cr.rectangle (0.0, 0.0, w, h);
-			cr.fill ();
-			cr.set_source_rgba (0.0, 0.0, 0.0, 0.12);
-			cr.set_line_width (1.0);
-			cr.rectangle (0.5, 0.5, w - 1.0, h - 1.0);
-			cr.stroke ();
-		});
-		swatch_btn.set_child (area);
-		swatch_btn.clicked.connect (() => {
-			update_view_background_color (copy);
+		var cancel_btn = new Gtk.Button.with_label ("Cancel");
+		cancel_btn.clicked.connect (() => {
 			popover.popdown ();
 		});
-		return swatch_btn;
+		button_box.append (cancel_btn);
+
+		var triggering_widget = parent;
+		if (triggering_widget != null) {
+			popover.set_parent (triggering_widget);
+		} else {
+			popover.set_parent (this);
+		}
+		popover.popup ();
 	}
 
 	private void apply_view_background_css () {
 		if (center_box == null)return;
 		if (view_bg_css == null) {
 			view_bg_css = new Gtk.CssProvider ();
-			var display = center_box.get_display ();
+			var display = get_display ();
 			if (display != null) {
 				Gtk.StyleContext.add_provider_for_display (display, view_bg_css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
 			}
 		}
-		string css = build_view_background_css ();
-		view_bg_css.load_from_data ((uint8[]) css);
-	}
 
-	private void update_view_color_preview () {
-		if (view_color_preview != null) {
-			view_color_preview.queue_draw ();
+		bool needs_light_fg = model.use_wallpaper || should_use_light_view_foreground ();
+		if (needs_light_fg) {
+			add_css_class ("light-fg");
+		} else {
+			remove_css_class ("light-fg");
 		}
-	}
 
-	private string build_view_background_css () {
-		string color_decl = format_view_background_color ();
-		bool needs_light_fg = should_use_light_view_foreground ();
-		var builder = new GLib.StringBuilder ();
-		if (!model.use_wallpaper) {
-			builder.append ("#center-bg { %s".printf (color_decl));
-			if (needs_light_fg) {
-				builder.append (" color: rgba(255,255,255,1.0);");
-			}
-			builder.append (" }");
-			if (needs_light_fg) {
-				append_light_foreground_css (builder);
-			}
-			return builder.str;
-		}
-		string? uri = get_preferred_wallpaper_uri ();
-		if (uri != null && wallpaper_uri_cache != uri) {
-			wallpaper_uri_cache = uri;
-		}
-		builder.append ("#center-bg { %s".printf (color_decl));
-		if (uri != null) {
-			string escaped = IconiUtils.escape_css_url (uri);
-			builder.append (" background-image: url(\"%s\"); background-size: cover; background-position: center; background-repeat: no-repeat;".printf (escaped));
-		}
-		builder.append (" color: rgba(255,255,255,1.0); }");
-		append_light_foreground_css (builder);
-		return builder.str;
-	}
-
-	private string format_view_background_color () {
+		var builder = new GLib.StringBuilder ("#center-bg { ");
 		var vb = model.view_background;
-		double rd = GLib.Math.fmax (0.0, GLib.Math.fmin (vb.red * 255.0, 255.0));
-		double gd = GLib.Math.fmax (0.0, GLib.Math.fmin (vb.green * 255.0, 255.0));
-		double bd = GLib.Math.fmax (0.0, GLib.Math.fmin (vb.blue * 255.0, 255.0));
-		int r = (int) (rd + 0.5);
-		int g = (int) (gd + 0.5);
-		int b = (int) (bd + 0.5);
-		return "background: rgba(%d, %d, %d, %.3f);".printf (r, g, b, vb.alpha);
+		int r = (int) (vb.red * 255.0 + 0.5);
+		int g = (int) (vb.green * 255.0 + 0.5);
+		int b = (int) (vb.blue * 255.0 + 0.5);
+		builder.append ("background: rgba(%d, %d, %d, %.3f);".printf (r, g, b, vb.alpha));
+
+		if (model.use_wallpaper) {
+			string? uri = get_preferred_wallpaper_uri ();
+			if (uri != null) {
+				if (wallpaper_uri_cache != uri) {
+					wallpaper_uri_cache = uri;
+				}
+				string escaped = IconiUtils.escape_css_url (uri);
+				builder.append (" background-image: url(\"%s\"); background-size: cover; background-position: center; background-repeat: no-repeat;".printf (escaped));
+			}
+		}
+		builder.append (" }");
+
+		view_bg_css.load_from_data ((uint8[]) builder.str);
 	}
 
 	private bool should_use_light_view_foreground () {
-		if (model.use_wallpaper)return true;
 		double bg_luminance = IconiUtils.compute_relative_luminance (model.view_background);
 		double contrast_white = IconiUtils.contrast_ratio (bg_luminance, 1.0);
 		double contrast_black = IconiUtils.contrast_ratio (bg_luminance, 0.0);
-		bool white_ok = contrast_white >= 4.5;
-		bool black_ok = contrast_black >= 4.5;
-		if (white_ok && !black_ok)return true;
-		if (!white_ok && black_ok)return false;
-		if (white_ok && black_ok)return contrast_white >= contrast_black;
-		return contrast_white > contrast_black;
-	}
-
-	private void append_light_foreground_css (GLib.StringBuilder builder) {
-		builder.append (" #center-bg > label, #center-bg > button { color: rgba(255,255,255,1.0); } #center-bg button { background: rgba(255,255,255,0.32); color: rgba(255,255,255,1.0); } #center-bg entry, #center-bg entry * { background: rgba(255,255,255,0.32); color: rgba(255,255,255,1.0); } #center-bg entry { caret-color: rgba(255,255,255,1.0); } #center-bg button { border-color: rgba(255,255,255,0.55); }");
+		return contrast_white >= contrast_black;
 	}
 
 	private void setup_wallpaper_settings () {
@@ -1217,12 +1289,8 @@ public class IconMakerWindow : He.ApplicationWindow {
 		if (bg_side_wall_switch != null) {
 			bg_side_wall_switch.set_active (state);
 		}
-		if (view_wall_toggle != null) {
-			view_wall_toggle.set_active (state);
-		}
 		updating_properties = previous;
 		apply_view_background_css ();
-		update_view_color_preview ();
 	}
 
 	private string ? get_preferred_wallpaper_uri () {
@@ -1240,6 +1308,22 @@ public class IconMakerWindow : He.ApplicationWindow {
 		bg_gradient_container.set_visible (show);
 	}
 
+	private void update_sidebar_visibility (bool show) {
+		if (right_box == null || mappbar == null || canvas == null)return;
+
+		right_box.set_visible (show);
+
+		if (show) {
+			mappbar.set_margin_end (342);
+			canvas.set_margin_end (342);
+			mappbar.show_right_title_buttons = false;
+		} else {
+			mappbar.set_margin_end (0);
+			canvas.set_margin_end (0);
+			mappbar.show_right_title_buttons = true;
+		}
+	}
+
 	private void update_properties_visibility () {
 		updating_properties = true;
 		try {
@@ -1249,14 +1333,16 @@ public class IconMakerWindow : He.ApplicationWindow {
 			bg_props_area.set_visible (show_bg);
 			props_area.set_visible (show_el);
 
+			update_sidebar_visibility (show_bg || show_el);
+
 			if (show_bg) {
-				bg_side_color_btn.set_rgba (model.background);
+				update_color_button (bg_side_color_btn, model.background);
 				bg_side_wall_switch.set_active (model.use_wallpaper);
 				bg_effects_switch.set_active (model.use_raised_effect);
 				bg_frame_switch.set_active (model.use_frame_overlay);
 				bg_dev_switch.set_active (model.show_dev_badge);
 				bg_fill_mode_drop.set_selected (model.use_gradient ? 1u : 0u);
-				bg_gradient_end_btn.set_rgba (model.gradient_secondary);
+				update_color_button (bg_gradient_end_btn, model.gradient_secondary);
 				bg_gradient_angle_spin.set_value (model.gradient_angle);
 			}
 			if (show_el) {
@@ -1266,8 +1352,8 @@ public class IconMakerWindow : He.ApplicationWindow {
 				w_entry.set_value ((double) el.width);
 				h_entry.set_value ((double) el.height);
 				stroke_width_spin.set_value ((double) el.stroke_width);
-				fill_btn.set_rgba (el.fill);
-				stroke_btn.set_rgba (el.stroke);
+				update_color_button (fill_btn, el.fill);
+				update_color_button (stroke_btn, el.stroke);
 
 				int bidx = 0;
 				for (int i = 0; i < blends.length; i++) {
@@ -1283,6 +1369,12 @@ public class IconMakerWindow : He.ApplicationWindow {
 
 				fill_opacity_spin.set_value ((double) ((float) el.fill.alpha * 100.0f));
 				stroke_opacity_spin.set_value ((double) ((float) el.stroke.alpha * 100.0f));
+
+				fill_mode_drop.set_selected (el.use_gradient ? 1u : 0u);
+				update_color_button (fill_gradient_btn, el.gradient_secondary);
+				fill_gradient_angle_spin.set_value (el.gradient_angle);
+				fill_gradient_box.set_visible (el.use_gradient);
+				fill_gradient_angle_box.set_visible (el.use_gradient);
 			}
 			sync_gradient_controls_visibility ();
 		} finally {
@@ -1294,23 +1386,17 @@ public class IconMakerWindow : He.ApplicationWindow {
 		model.background = rgba;
 		bool previous = updating_properties;
 		updating_properties = true;
-		bg_side_color_btn.set_rgba (rgba);
+		update_color_button (bg_side_color_btn, rgba);
 		updating_properties = previous;
 		sync_gradient_controls_visibility ();
 		canvas.queue_draw ();
-	}
-
-	private void update_view_background_color (Gdk.RGBA rgba) {
-		model.view_background = rgba;
-		apply_view_background_css ();
-		update_view_color_preview ();
 	}
 
 	private void update_gradient_secondary_color (Gdk.RGBA rgba) {
 		model.gradient_secondary = rgba;
 		bool previous = updating_properties;
 		updating_properties = true;
-		bg_gradient_end_btn.set_rgba (rgba);
+		update_color_button (bg_gradient_end_btn, rgba);
 		updating_properties = previous;
 		if (model.use_gradient && !model.use_wallpaper) {
 			canvas.queue_draw ();

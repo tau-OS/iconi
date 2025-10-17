@@ -13,3 +13,71 @@
     border: 2px solid @accent_bg_color;
     box-shadow: none;
 }
+
+.wallpaper-btn {
+    min-width: 34px;
+    min-height: 30px;
+    padding: 2px;
+    margin: 0 2px;
+    border-radius: 9999px;
+    background: transparent;
+}
+
+.gray-btn {
+    background: transparent;
+    min-width: 34px;
+    min-height: 30px;
+    padding: 2px;
+    margin: 0 2px;
+    border-radius: 9999px;
+}
+
+#center-bg.light-fg .disclosure-button {
+  color: @window_fg_color;
+  background: @surface_container_high_bg_color;
+}
+#center-bg.light-fg label {
+  color: @window_fg_color;
+}
+#center-bg.light-fg windowcontrols button {
+  background: transparent;
+}
+
+#center-bg.light-fg .main-appbar .flat-appbar label {
+  color: #fff;
+  text-shadow: 0 2px alpha(#000, 0.1);
+}
+#center-bg.light-fg .main-appbar .flat-appbar button {
+  color: #fff;
+  background: alpha(#fff, 0.32);
+  box-shadow: 0 0 4px 1px alpha(#000, 0.1);
+}
+
+.sidebar-view {
+  margin: 6px;
+  border-radius: 12px;
+  box-shadow: inset 0 2px 0 0 alpha(#FFF, 0.66), 0 2px 4px 0 alpha(#000, 0.1);
+}
+.inspector-view {
+  margin: 6px;
+  border-radius: 12px;
+  box-shadow: inset 0 2px 0 0 alpha(#FFF, 0.66), 0 2px 4px 0 alpha(#000, 0.1);
+  background: @surface_container_high_bg_color;
+}
+
+/* overrides for spacing and coloring, upstream when possible */
+.mini-content-block {
+  padding: 8px;
+  margin: 0;
+}
+dropdown {
+    min-height: 40px;
+}
+dropdown button {
+    min-height: 40px;
+    padding: 0 12px;
+    color: @window_fg_color;
+}
+dropdown .view label {
+    color: @window_fg_color;
+}
