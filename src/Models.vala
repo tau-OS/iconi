@@ -49,7 +49,7 @@ public class IconModel : GLib.Object {
     public bool background_selected = false;
     public bool reorder_mode = false;
 
-    public string name = "icon-name";
+    public string name = "Icon Name";
     public Gdk.RGBA background = { 0 };
     public bool use_wallpaper = false;
     public bool use_gradient = false;

@@ -44,7 +44,8 @@ public class IconMakerWindow : He.ApplicationWindow {
 
 	private Gtk.Box blend_drop_box;
 	private Gtk.DropDown blend_drop;
-	private string[] blends = { "normal", "multiply", "screen", "overlay", "darken", "lighten", "color-dodge", "color-burn", "hard-light", "soft-light", "difference", "exclusion", "hue", "saturation", "color", "luminosity" };
+	private string[] blend_labels = { "Normal", "Multiply", "Screen", "Overlay", "Darken", "Lighten", "Color Dodge", "Color Burn", "Hard Light", "Soft Light", "Difference", "Exclusion", "Hue", "Saturation", "Color", "Luminosity" };
+	private string[] blend_values = { "normal", "multiply", "screen", "overlay", "darken", "lighten", "color-dodge", "color-burn", "hard-light", "soft-light", "difference", "exclusion", "hue", "saturation", "color", "luminosity" };
 	private string[] bg_fill_modes = { "Solid", "Gradient" };
 
 	private Gtk.Button bg_side_color_btn;
@@ -594,7 +595,7 @@ public class IconMakerWindow : He.ApplicationWindow {
 		blend_drop_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
 		blend_drop_box.add_css_class ("mini-content-block");
 		blend_drop_box.append (new Gtk.Label ("Blend Mode") { xalign = 0.0f, hexpand = true });
-		blend_drop = new Gtk.DropDown.from_strings (blends);
+		blend_drop = new Gtk.DropDown.from_strings (blend_labels);
 		blend_drop_box.append (blend_drop);
 		props_area.append (blend_drop_box);
 
@@ -845,9 +846,9 @@ public class IconMakerWindow : He.ApplicationWindow {
 			if (pspec.name != "selected")return;
 			if (model.selected_index < 0)return;
 			uint idx = blend_drop.get_selected ();
-			if (idx >= blends.length)return;
+			if (idx >= blend_values.length)return;
 			var el = (IconElement) model.elements.get_item ((uint) model.selected_index);
-			el.blend_mode = blends[(int) idx];
+			el.blend_mode = blend_values[(int) idx];
 			canvas.queue_draw ();
 		});
 
@@ -1204,6 +1205,46 @@ public class IconMakerWindow : He.ApplicationWindow {
 			}
 		}
 
+		// Add neutral colors row
+		var neutral_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 4);
+		neutral_box.set_halign (Gtk.Align.CENTER);
+		neutral_box.set_margin_top (4);
+		content_box.append (neutral_box);
+
+		string[] neutral_colors = { "#000000", "#888888", "#FFFFFF" };
+		string[] neutral_labels = { "Black", "Mid-Gray", "White" };
+
+		for (int i = 0; i < neutral_colors.length; i++) {
+			Gdk.RGBA neutral_color = IconiUtils.parse_hex_color (neutral_colors[i]);
+
+			var neutral_btn = new Gtk.Button ();
+			neutral_btn.add_css_class ("swatch_button");
+			neutral_btn.set_focus_on_click (false);
+			neutral_btn.set_size_request (42, 42);
+			neutral_btn.set_tooltip_text (neutral_labels[i]);
+
+			var area = new Gtk.DrawingArea ();
+			area.set_content_width (42);
+			area.set_content_height (42);
+			Gdk.RGBA copy = neutral_color;
+			area.set_draw_func ((da, cr, w, h) => {
+				cr.set_source_rgba (copy.red, copy.green, copy.blue, copy.alpha);
+				cr.rectangle (0.0, 0.0, w, h);
+				cr.fill ();
+				cr.set_source_rgba (0.0, 0.0, 0.0, 0.12);
+				cr.set_line_width (1.0);
+				cr.rectangle (0.5, 0.5, w - 1.0, h - 1.0);
+				cr.stroke ();
+			});
+			neutral_btn.set_child (area);
+			neutral_btn.clicked.connect (() => {
+				selected_color = copy;
+				callback (selected_color);
+				popover.popdown ();
+			});
+			neutral_box.append (neutral_btn);
+		}
+
 		var button_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
 		button_box.set_halign (Gtk.Align.END);
 		content_box.append (button_box);
@@ -1235,9 +1276,9 @@ public class IconMakerWindow : He.ApplicationWindow {
 
 		bool needs_light_fg = model.use_wallpaper || should_use_light_view_foreground ();
 		if (needs_light_fg) {
-			add_css_class ("light-fg");
+			center_box.add_css_class ("light-fg");
 		} else {
-			remove_css_class ("light-fg");
+			center_box.remove_css_class ("light-fg");
 		}
 
 		var builder = new GLib.StringBuilder ("#center-bg { ");
@@ -1356,8 +1397,8 @@ public class IconMakerWindow : He.ApplicationWindow {
 				update_color_button (stroke_btn, el.stroke);
 
 				int bidx = 0;
-				for (int i = 0; i < blends.length; i++) {
-					if (blends[i] == el.blend_mode) {
+				for (int i = 0; i < blend_values.length; i++) {
+					if (blend_values[i] == el.blend_mode) {
 						bidx = i; break;
 					}
 				}

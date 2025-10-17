@@ -32,25 +32,32 @@
     border-radius: 9999px;
 }
 
-#center-bg.light-fg .disclosure-button {
-  color: @window_fg_color;
-  background: @surface_container_high_bg_color;
-}
-#center-bg.light-fg label {
-  color: @window_fg_color;
-}
-#center-bg.light-fg windowcontrols button {
-  background: transparent;
-}
-
-#center-bg.light-fg .main-appbar .flat-appbar label {
+#center-bg.light-fg .main-appbar label,
+#center-bg.light-fg .main-appbar .view-title {
   color: #fff;
   text-shadow: 0 2px alpha(#000, 0.1);
 }
-#center-bg.light-fg .main-appbar .flat-appbar button {
+
+#center-bg.light-fg .main-appbar menubutton > button {
   color: #fff;
   background: alpha(#fff, 0.32);
   box-shadow: 0 0 4px 1px alpha(#000, 0.1);
+}
+
+#center-bg.light-fg .main-appbar button:not(.wallpaper-btn):not(.gray-btn):not(.close):not(.minimize):not(.maximize) {
+  color: #fff;
+  background: alpha(#fff, 0.32);
+  box-shadow: 0 0 4px 1px alpha(#000, 0.1);
+}
+
+#center-bg.light-fg .disclosure-button {
+  color: #fff;
+  background: alpha(#fff, 0.32);
+  box-shadow: 0 0 4px 1px alpha(#000, 0.1);
+}
+
+#center-bg.light-fg windowcontrols button {
+  background: transparent;
 }
 
 .sidebar-view {
