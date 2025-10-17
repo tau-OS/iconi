@@ -103,100 +103,187 @@ public class IconRenderer : GLib.Object {
         }
 
         // Elements
-        int n = (int) model.elements.get_n_items ();
-        for (int i = 0; i < n; i++) {
-            var el = (IconElement) model.elements.get_item ((uint) i);
+        int ng = (int) model.groups.get_n_items ();
+        for (int g = 0; g < ng; g++) {
+            var group = (ElementGroup) model.groups.get_item ((uint) g);
+            cr.set_operator (IconiUtils.blend_to_operator (group.blend_mode));
 
-            float ex = cx + el.x;
-            float ey = cy + el.y;
-            float ew = el.width;
-            float eh = el.height;
+            int ne = (int) group.elements.get_n_items ();
+            for (int i = 0; i < ne; i++) {
+                var el = (IconElement) group.elements.get_item ((uint) i);
 
-            ex = IconiUtils.clampf (ex, cx, cx + preview);
-            ey = IconiUtils.clampf (ey, cy, cy + preview);
-            ew = (float) GLib.Math.fmin (ew, (cx + preview) - ex);
-            eh = (float) GLib.Math.fmin (eh, (cy + preview) - ey);
+                float ex = cx + el.x;
+                float ey = cy + el.y;
+                float ew = el.width;
+                float eh = el.height;
 
-            cr.set_operator (IconiUtils.blend_to_operator (el.blend_mode));
+                ex = IconiUtils.clampf (ex, cx, cx + preview);
+                ey = IconiUtils.clampf (ey, cy, cy + preview);
+                ew = (float) GLib.Math.fmin (ew, (cx + preview) - ex);
+                eh = (float) GLib.Math.fmin (eh, (cy + preview) - ey);
 
-            if (el.type == ElementType.RECTANGLE) {
-                if (el.use_gradient) {
-                    double angle_rad = el.gradient_angle * (GLib.Math.PI / 180.0);
-                    double dx = GLib.Math.cos (angle_rad) * (double) ew;
-                    double dy = GLib.Math.sin (angle_rad) * (double) eh;
-                    var pattern = new Cairo.Pattern.linear (ex, ey, ex + dx, ey + dy);
-                    pattern.add_color_stop_rgba (0.0, el.fill.red, el.fill.green, el.fill.blue, el.fill.alpha);
-                    pattern.add_color_stop_rgba (1.0, el.gradient_secondary.red, el.gradient_secondary.green, el.gradient_secondary.blue, el.gradient_secondary.alpha);
-                    cr.rectangle (ex, ey, ew, eh);
-                    cr.set_source (pattern);
-                    cr.fill_preserve ();
-                } else {
-                    float fr = (float) el.fill.red;
-                    float fg = (float) el.fill.green;
-                    float fb = (float) el.fill.blue;
-                    float fa = (float) el.fill.alpha;
-                    cr.set_source_rgba (fr, fg, fb, fa);
-                    cr.rectangle (ex, ey, ew, eh);
-                    cr.fill_preserve ();
-                }
-                float sr1 = (float) el.stroke.red;
-                float sg1 = (float) el.stroke.green;
-                float sb1 = (float) el.stroke.blue;
-                float sa1 = (float) el.stroke.alpha;
-                cr.set_source_rgba (sr1, sg1, sb1, sa1);
-                cr.set_line_width (el.stroke_width);
-                cr.stroke ();
-            } else if (el.type == ElementType.CIRCLE) {
-                double scale_x = ew / 2.0;
-                double scale_y = eh / 2.0;
-                double line_scale = (GLib.Math.fabs (scale_x) + GLib.Math.fabs (scale_y)) / 2.0;
-                if (line_scale <= 0.0)line_scale = 1.0;
                 cr.save ();
-                cr.translate (ex + ew / 2.0f, ey + eh / 2.0f);
-                cr.scale (scale_x, scale_y);
-                cr.new_path ();
-                cr.arc (0.0, 0.0, 1.0, 0.0, 2.0 * (float) GLib.Math.PI);
-                if (el.use_gradient) {
-                    double angle_rad = el.gradient_angle * (GLib.Math.PI / 180.0);
-                    double dx = GLib.Math.cos (angle_rad);
-                    double dy = GLib.Math.sin (angle_rad);
-                    var pattern = new Cairo.Pattern.linear (-dx, -dy, dx, dy);
-                    pattern.add_color_stop_rgba (0.0, el.fill.red, el.fill.green, el.fill.blue, el.fill.alpha);
-                    pattern.add_color_stop_rgba (1.0, el.gradient_secondary.red, el.gradient_secondary.green, el.gradient_secondary.blue, el.gradient_secondary.alpha);
-                    cr.set_source (pattern);
-                } else {
-                    float fr = (float) el.fill.red;
-                    float fg = (float) el.fill.green;
-                    float fb = (float) el.fill.blue;
-                    float fa = (float) el.fill.alpha;
-                    cr.set_source_rgba (fr, fg, fb, fa);
+                if (el.element_angle != 0.0) {
+                    double center_x = ex + ew / 2.0;
+                    double center_y = ey + eh / 2.0;
+                    cr.translate (center_x, center_y);
+                    cr.rotate (el.element_angle * (GLib.Math.PI / 180.0));
+                    cr.translate (-center_x, -center_y);
                 }
-                cr.fill_preserve ();
-                float sr1 = (float) el.stroke.red;
-                float sg1 = (float) el.stroke.green;
-                float sb1 = (float) el.stroke.blue;
-                float sa1 = (float) el.stroke.alpha;
-                cr.set_source_rgba (sr1, sg1, sb1, sa1);
-                cr.set_line_width (el.stroke_width / line_scale);
-                cr.stroke ();
+
+                if (el.type == ElementType.RECTANGLE) {
+                    if (el.use_gradient) {
+                        double angle_rad = el.gradient_angle * (GLib.Math.PI / 180.0);
+                        double dx = GLib.Math.cos (angle_rad) * (double) ew;
+                        double dy = GLib.Math.sin (angle_rad) * (double) eh;
+                        var pattern = new Cairo.Pattern.linear (ex, ey, ex + dx, ey + dy);
+                        pattern.add_color_stop_rgba (0.0, el.fill.red, el.fill.green, el.fill.blue, el.fill.alpha);
+                        pattern.add_color_stop_rgba (1.0, el.gradient_secondary.red, el.gradient_secondary.green, el.gradient_secondary.blue, el.gradient_secondary.alpha);
+                        cr.rectangle (ex, ey, ew, eh);
+                        cr.set_source (pattern);
+                        cr.fill_preserve ();
+                    } else {
+                        float fr = (float) el.fill.red;
+                        float fg = (float) el.fill.green;
+                        float fb = (float) el.fill.blue;
+                        float fa = (float) el.fill.alpha;
+                        cr.set_source_rgba (fr, fg, fb, fa);
+                        cr.rectangle (ex, ey, ew, eh);
+                        cr.fill_preserve ();
+                    }
+                    float sr1 = (float) el.stroke.red;
+                    float sg1 = (float) el.stroke.green;
+                    float sb1 = (float) el.stroke.blue;
+                    float sa1 = (float) el.stroke.alpha;
+                    cr.set_source_rgba (sr1, sg1, sb1, sa1);
+                    cr.set_line_width (el.stroke_width);
+                    cr.stroke ();
+                } else if (el.type == ElementType.CIRCLE) {
+                    double scale_x = ew / 2.0;
+                    double scale_y = eh / 2.0;
+                    double line_scale = (GLib.Math.fabs (scale_x) + GLib.Math.fabs (scale_y)) / 2.0;
+                    if (line_scale <= 0.0)line_scale = 1.0;
+                    cr.save ();
+                    cr.translate (ex + ew / 2.0f, ey + eh / 2.0f);
+                    cr.scale (scale_x, scale_y);
+                    cr.new_path ();
+                    cr.arc (0.0, 0.0, 1.0, 0.0, 2.0 * (float) GLib.Math.PI);
+                    if (el.use_gradient) {
+                        double angle_rad = el.gradient_angle * (GLib.Math.PI / 180.0);
+                        double dx = GLib.Math.cos (angle_rad);
+                        double dy = GLib.Math.sin (angle_rad);
+                        var pattern = new Cairo.Pattern.linear (-dx, -dy, dx, dy);
+                        pattern.add_color_stop_rgba (0.0, el.fill.red, el.fill.green, el.fill.blue, el.fill.alpha);
+                        pattern.add_color_stop_rgba (1.0, el.gradient_secondary.red, el.gradient_secondary.green, el.gradient_secondary.blue, el.gradient_secondary.alpha);
+                        cr.set_source (pattern);
+                    } else {
+                        float fr = (float) el.fill.red;
+                        float fg = (float) el.fill.green;
+                        float fb = (float) el.fill.blue;
+                        float fa = (float) el.fill.alpha;
+                        cr.set_source_rgba (fr, fg, fb, fa);
+                    }
+                    cr.fill_preserve ();
+                    float sr1 = (float) el.stroke.red;
+                    float sg1 = (float) el.stroke.green;
+                    float sb1 = (float) el.stroke.blue;
+                    float sa1 = (float) el.stroke.alpha;
+                    cr.set_source_rgba (sr1, sg1, sb1, sa1);
+                    cr.set_line_width (el.stroke_width / line_scale);
+                    cr.stroke ();
+                    cr.restore ();
+                } else if (el.type == ElementType.LINE) {
+                    if (el.use_gradient) {
+                        var pattern = new Cairo.Pattern.linear (ex, ey, ex + ew, ey + eh);
+                        pattern.add_color_stop_rgba (0.0, el.stroke.red, el.stroke.green, el.stroke.blue, el.stroke.alpha);
+                        pattern.add_color_stop_rgba (1.0, el.gradient_secondary.red, el.gradient_secondary.green, el.gradient_secondary.blue, el.gradient_secondary.alpha);
+                        cr.set_source (pattern);
+                    } else {
+                        float sr = (float) el.stroke.red;
+                        float sg = (float) el.stroke.green;
+                        float sb = (float) el.stroke.blue;
+                        float sa = (float) el.stroke.alpha;
+                        cr.set_source_rgba (sr, sg, sb, sa);
+                    }
+                    cr.set_line_width (el.stroke_width);
+                    cr.move_to (ex, ey);
+                    cr.line_to (ex + ew, ey + eh);
+                    cr.stroke ();
+                } else if (el.type == ElementType.SVG) {
+                    try {
+                        var svg_handle = new Rsvg.Handle.from_data (el.svg_data.data);
+                        var viewport = Rsvg.Rectangle ();
+                        viewport.x = ex;
+                        viewport.y = ey;
+                        viewport.width = ew;
+                        viewport.height = eh;
+                        svg_handle.render_document (cr, viewport);
+                    } catch (Error e) {
+                        warning ("Failed to render SVG: %s", e.message);
+                    }
+                }
+
                 cr.restore ();
-            } else if (el.type == ElementType.LINE) {
-                if (el.use_gradient) {
-                    var pattern = new Cairo.Pattern.linear (ex, ey, ex + ew, ey + eh);
-                    pattern.add_color_stop_rgba (0.0, el.stroke.red, el.stroke.green, el.stroke.blue, el.stroke.alpha);
-                    pattern.add_color_stop_rgba (1.0, el.gradient_secondary.red, el.gradient_secondary.green, el.gradient_secondary.blue, el.gradient_secondary.alpha);
-                    cr.set_source (pattern);
-                } else {
-                    float sr = (float) el.stroke.red;
-                    float sg = (float) el.stroke.green;
-                    float sb = (float) el.stroke.blue;
-                    float sa = (float) el.stroke.alpha;
-                    cr.set_source_rgba (sr, sg, sb, sa);
+            }
+
+            // Apply group-level effects
+            if (group.use_raised_effect || group.use_shadow) {
+                cr.save ();
+
+                // Create a composite path of all elements in the group
+                for (int i = 0; i < ne; i++) {
+                    var el = (IconElement) group.elements.get_item ((uint) i);
+                    float ex = cx + el.x;
+                    float ey = cy + el.y;
+                    float ew = el.width;
+                    float eh = el.height;
+
+                    cr.save ();
+                    if (el.element_angle != 0.0) {
+                        double center_x = ex + ew / 2.0;
+                        double center_y = ey + eh / 2.0;
+                        cr.translate (center_x, center_y);
+                        cr.rotate (el.element_angle * (GLib.Math.PI / 180.0));
+                        cr.translate (-center_x, -center_y);
+                    }
+
+                    if (el.type == ElementType.RECTANGLE) {
+                        cr.rectangle (ex, ey, ew, eh);
+                    } else if (el.type == ElementType.CIRCLE) {
+                        double scale_x = ew / 2.0;
+                        double scale_y = eh / 2.0;
+                        cr.save ();
+                        cr.translate (ex + ew / 2.0f, ey + eh / 2.0f);
+                        cr.scale (scale_x, scale_y);
+                        cr.arc (0.0, 0.0, 1.0, 0.0, 2.0 * GLib.Math.PI);
+                        cr.restore ();
+                    } else if (el.type == ElementType.LINE) {
+                        cr.move_to (ex, ey);
+                        cr.line_to (ex + ew, ey + eh);
+                    }
+                    cr.restore ();
                 }
-                cr.set_line_width (el.stroke_width);
-                cr.move_to (ex, ey);
-                cr.line_to (ex + ew, ey + eh);
-                cr.stroke ();
+
+                // Shadow (bottom inner shadow)
+                if (group.use_shadow) {
+                    cr.set_source_rgba (0.0, 0.0, 0.0, 0.2);
+                    cr.set_line_width (2.0);
+                    cr.stroke_preserve ();
+                }
+
+                // Raised effect (top glow)
+                if (group.use_raised_effect) {
+                    cr.save ();
+                    cr.translate (0, -2);
+                    cr.set_source_rgba (1.0, 1.0, 1.0, 0.5);
+                    cr.set_line_width (2.0);
+                    cr.stroke ();
+                    cr.restore ();
+                } else {
+                    cr.new_path ();
+                }
+
+                cr.restore ();
             }
 
             cr.set_operator (Cairo.Operator.OVER);

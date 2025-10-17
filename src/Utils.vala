@@ -98,4 +98,11 @@ namespace IconiUtils {
         if (value == "color-shading")return null;
         return value;
     }
+
+    public string rgba_to_hex (Gdk.RGBA color) {
+        int r = (int) Math.floor (color.red * 255.0);
+        int g = (int) Math.floor (color.green * 255.0);
+        int b = (int) Math.floor (color.blue * 255.0);
+        return "#%02x%02x%02x".printf (r, g, b);
+    }
 }

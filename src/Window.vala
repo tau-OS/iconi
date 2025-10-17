@@ -10,6 +10,7 @@ public class IconMakerWindow : He.ApplicationWindow {
 
 	private Gtk.Box props_area;
 	private Gtk.Box bg_props_area;
+	private Gtk.Box group_props_area;
 	private Gtk.Box center_box;
 	private Gtk.Box right_box;
 	private He.AppBar mappbar;
@@ -19,6 +20,7 @@ public class IconMakerWindow : He.ApplicationWindow {
 	private Gtk.SpinButton w_entry;
 	private Gtk.SpinButton h_entry;
 	private Gtk.Box size_box;
+	private Gtk.Box pos_box;
 
 	private Gtk.Button fill_btn;
 	private Gtk.Button stroke_btn;
@@ -26,24 +28,28 @@ public class IconMakerWindow : He.ApplicationWindow {
 	private Gtk.SpinButton stroke_opacity_spin;
 	private Gtk.SpinButton stroke_width_spin;
 	private Gtk.Label fill_label;
-	private Gtk.Box fill_opacity_box;
+	private Gtk.Box fill_box;
 	private Gtk.Label stroke_label;
-	private Gtk.Box stroke_color_box;
-	private Gtk.Box stroke_opacity_box;
-	private Gtk.Box stroke_width_box;
+	private Gtk.Box stroke_box;
 	private Gtk.DropDown fill_mode_drop;
 	private Gtk.Label fill_mode_label;
-	private Gtk.Box fill_gradient_box;
-	private Gtk.Box fill_gradient_angle_box;
 	private Gtk.Button fill_gradient_btn;
 	private Gtk.SpinButton fill_gradient_angle_spin;
 	private Gtk.Label fill_gradient_angle_label;
+	private Gtk.Box fill_gradient_color_row;
+	private Gtk.Box fill_gradient_angle_row;
 	private Gtk.Box line_controls_box;
 	private Gtk.SpinButton line_length_spin;
 	private Gtk.SpinButton line_angle_spin;
 
-	private Gtk.Box blend_drop_box;
-	private Gtk.DropDown blend_drop;
+	private Gtk.Box element_angle_box;
+	private Gtk.SpinButton element_angle_spin;
+
+	private Gtk.Box group_blend_box;
+	private Gtk.DropDown group_blend_drop;
+	private Gtk.Switch group_raised_toggle;
+	private Gtk.Switch group_shadow_toggle;
+
 	private string[] blend_labels = { "Normal", "Multiply", "Screen", "Overlay", "Darken", "Lighten", "Color Dodge", "Color Burn", "Hard Light", "Soft Light", "Difference", "Exclusion", "Hue", "Saturation", "Color", "Luminosity" };
 	private string[] blend_values = { "normal", "multiply", "screen", "overlay", "darken", "lighten", "color-dodge", "color-burn", "hard-light", "soft-light", "difference", "exclusion", "hue", "saturation", "color", "luminosity" };
 	private string[] bg_fill_modes = { "Solid", "Gradient" };
@@ -54,6 +60,11 @@ public class IconMakerWindow : He.ApplicationWindow {
 	private Gtk.Button bg_gradient_end_btn;
 	private Gtk.SpinButton bg_gradient_angle_spin;
 	private Gtk.Box bg_gradient_container;
+	private Gtk.Box bg_canvas_bg_row;
+	private Gtk.Box bg_fill_mode_row;
+	private Gtk.Box bg_effects_row;
+	private Gtk.Box bg_frame_row;
+	private Gtk.Box bg_dev_row;
 
 	private Gtk.Scale zoom_scale;
 	private Gtk.Label zoom_label;
@@ -83,6 +94,36 @@ public class IconMakerWindow : He.ApplicationWindow {
 		setup_ui ();
 	}
 
+	private IconElement ? get_selected_element () {
+		if (model.selected_group_index < 0 || model.selected_element_index < 0)
+			return null;
+		var group = (ElementGroup) model.groups.get_item ((uint) model.selected_group_index);
+		if (group == null)
+			return null;
+		return (IconElement?) group.elements.get_item ((uint) model.selected_element_index);
+	}
+
+	private void add_element_in_new_group (IconElement el) {
+		var new_group = new ElementGroup (model.name);
+		new_group.elements.append (el);
+		model.groups.append (new_group);
+		refresh_listbox ();
+		canvas.queue_draw ();
+	}
+
+	private void load_svg_file (GLib.File file) {
+		try {
+			uint8[] contents;
+			file.load_contents (null, out contents, null);
+			var svg_data = (string) contents;
+			var e = new IconElement (ElementType.SVG);
+			e.svg_data = svg_data;
+			add_element_in_new_group (e);
+		} catch (Error err) {
+			warning ("Failed to load SVG: %s", err.message);
+		}
+	}
+
 	private void setup_ui () {
 		var main_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 8);
 
@@ -91,8 +132,8 @@ public class IconMakerWindow : He.ApplicationWindow {
 		main_box.add_controller (key_controller);
 		key_controller.key_pressed.connect ((controller, keyval, keycode, state) => {
 			if (keyval == Gdk.Key.Delete || keyval == Gdk.Key.BackSpace) {
-				if (!model.background_selected && model.selected_index >= 0) {
-					remove_element_at (model.selected_index);
+				if (!model.background_selected && model.selected_group_index >= 0 && model.selected_element_index >= 0) {
+					remove_element_at (model.selected_group_index, model.selected_element_index);
 				}
 				return true;
 			}
@@ -125,12 +166,22 @@ public class IconMakerWindow : He.ApplicationWindow {
 		add_menu_btn.set_tooltip_text ("Add element");
 		var add_pop = new Gtk.Popover ();
 		var add_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
-		var add_rect_btn = new Gtk.Button.with_label ("Rectangle");
-		var add_circle_btn = new Gtk.Button.with_label ("Circle");
-		var add_line_btn = new Gtk.Button.with_label ("Line");
+		add_box.margin_bottom = 6;
+		add_box.margin_top = 6;
+		add_box.margin_start = 6;
+		add_box.margin_end = 6;
+		var add_rect_btn = new He.Button ("", "Rectangle");
+		add_rect_btn.is_textual = true;
+		var add_circle_btn = new He.Button ("", "Circle");
+		add_circle_btn.is_textual = true;
+		var add_line_btn = new He.Button ("", "Line");
+		add_line_btn.is_textual = true;
+		var add_svg_btn = new He.Button ("", "Image (.svg)");
+		add_svg_btn.is_textual = true;
 		add_box.append (add_rect_btn);
 		add_box.append (add_circle_btn);
 		add_box.append (add_line_btn);
+		add_box.append (add_svg_btn);
 		add_pop.set_child (add_box);
 		add_menu_btn.set_popover (add_pop);
 		add_menu_btn.set_child (new Gtk.Image.from_icon_name ("list-add-symbolic"));
@@ -144,6 +195,23 @@ public class IconMakerWindow : He.ApplicationWindow {
 		listbox.margin_end = 18;
 		listbox.set_vexpand (true);
 		listbox.add_css_class ("content-list");
+
+		// Add drop target for external SVG files
+		var drop_target = new Gtk.DropTarget (typeof (Gdk.FileList), Gdk.DragAction.COPY);
+		drop_target.drop.connect ((dt, val, x, y) => {
+			var file_list = (Gdk.FileList) val;
+			var files = file_list.get_files ();
+			for (int i = 0; i < files.length (); i++) {
+				var file = files.nth_data (i);
+				var path = file.get_path ();
+				if (path != null && path.down ().has_suffix (".svg")) {
+					load_svg_file (file);
+				}
+			}
+			return true;
+		});
+		listbox.add_controller (drop_target);
+
 		left_box.append (listbox);
 
 		// CENTER
@@ -394,35 +462,46 @@ public class IconMakerWindow : He.ApplicationWindow {
 		bg_props_area.margin_end = 18;
 		main_props_box.append (bg_props_area);
 
+		group_props_area = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
+		group_props_area.set_size_request (300, -1);
+		group_props_area.margin_start = 18;
+		group_props_area.margin_bottom = 18;
+		group_props_area.margin_end = 18;
+		main_props_box.append (group_props_area);
+
 		var scrolled = new Gtk.ScrolledWindow ();
 		scrolled.set_policy (Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
 		scrolled.set_child (main_props_box);
 		right_box.append (scrolled);
 
 		// Background properties (right)
-		var canvas_bg_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
-		canvas_bg_row.add_css_class ("mini-content-block");
+		bg_canvas_bg_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		bg_canvas_bg_row.add_css_class ("mini-content-block");
 		bg_side_color_btn = create_color_button (model.background);
 		bg_side_wall_switch = new Gtk.Switch ();
 		bg_side_wall_switch.set_active (model.use_wallpaper);
-		canvas_bg_row.append (new Gtk.Label ("Background Color") { xalign = 0.0f, hexpand = true });
-		canvas_bg_row.append (bg_side_color_btn);
-		bg_props_area.append (canvas_bg_row);
-		var fill_mode_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
-		fill_mode_row.add_css_class ("mini-content-block");
+		var bg_color_label = new Gtk.Label ("Background Color") { xalign = 0.0f, hexpand = true };
+		bg_color_label.add_css_class ("caption");
+		bg_canvas_bg_row.append (bg_color_label);
+		bg_canvas_bg_row.append (bg_side_color_btn);
+		bg_props_area.append (bg_canvas_bg_row);
+		bg_fill_mode_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		bg_fill_mode_row.add_css_class ("mini-content-block");
 		fill_mode_label = new Gtk.Label ("Fill Type");
 		fill_mode_label.set_xalign (0.0f);
 		fill_mode_label.set_hexpand (true);
-		fill_mode_row.append (fill_mode_label);
+		fill_mode_label.add_css_class ("caption");
+		bg_fill_mode_row.append (fill_mode_label);
 		bg_fill_mode_drop = new Gtk.DropDown.from_strings (bg_fill_modes);
 		bg_fill_mode_drop.set_selected (model.use_gradient ? 1u : 0u);
-		fill_mode_row.append (bg_fill_mode_drop);
-		bg_props_area.append (fill_mode_row);
+		bg_fill_mode_row.append (bg_fill_mode_drop);
+		bg_props_area.append (bg_fill_mode_row);
 		bg_gradient_container = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
 		bg_gradient_container.add_css_class ("mini-content-block");
 		var gradient_color_label = new Gtk.Label ("Gradient End Color");
 		gradient_color_label.set_xalign (0.0f);
 		gradient_color_label.set_hexpand (true);
+		gradient_color_label.add_css_class ("caption");
 		bg_gradient_end_btn = create_color_button (model.gradient_secondary);
 		bg_gradient_end_btn.set_halign (Gtk.Align.END);
 		var gradient_color_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
@@ -433,54 +512,92 @@ public class IconMakerWindow : He.ApplicationWindow {
 		var gradient_angle_label = new Gtk.Label ("Gradient Angle");
 		gradient_angle_label.set_xalign (0.0f);
 		gradient_angle_label.set_hexpand (true);
+		gradient_angle_label.add_css_class ("caption");
 		gradient_angle_row.append (gradient_angle_label);
 		bg_gradient_angle_spin = new Gtk.SpinButton.with_range (0, 360, 1);
 		bg_gradient_angle_spin.set_value (model.gradient_angle);
 		gradient_angle_row.append (bg_gradient_angle_spin);
 		bg_gradient_container.append (gradient_angle_row);
 		bg_props_area.append (bg_gradient_container);
-		var effects_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
-		effects_row.add_css_class ("mini-content-block");
+		bg_effects_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		bg_effects_row.add_css_class ("mini-content-block");
 		var effects_label = new Gtk.Label ("Raised Effect");
 		effects_label.set_xalign (0.0f);
 		effects_label.set_hexpand (true);
-		effects_row.append (effects_label);
+		effects_label.add_css_class ("caption");
+		bg_effects_row.append (effects_label);
 		bg_effects_switch = new Gtk.Switch ();
 		bg_effects_switch.set_active (model.use_raised_effect);
-		effects_row.append (bg_effects_switch);
-		bg_props_area.append (effects_row);
-		var frame_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
-		frame_row.add_css_class ("mini-content-block");
+		bg_effects_row.append (bg_effects_switch);
+		bg_props_area.append (bg_effects_row);
+		bg_frame_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		bg_frame_row.add_css_class ("mini-content-block");
 		var frame_label = new Gtk.Label ("Toolbox App Frame");
 		frame_label.set_xalign (0.0f);
 		frame_label.set_hexpand (true);
-		frame_row.append (frame_label);
+		frame_label.add_css_class ("caption");
+		bg_frame_row.append (frame_label);
 		bg_frame_switch = new Gtk.Switch ();
 		bg_frame_switch.set_active (model.use_frame_overlay);
-		frame_row.append (bg_frame_switch);
-		bg_props_area.append (frame_row);
-		var dev_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
-		dev_row.add_css_class ("mini-content-block");
+		bg_frame_row.append (bg_frame_switch);
+		bg_props_area.append (bg_frame_row);
+		bg_dev_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		bg_dev_row.add_css_class ("mini-content-block");
 		var dev_label = new Gtk.Label ("Developer Badge");
 		dev_label.set_xalign (0.0f);
 		dev_label.set_hexpand (true);
-		dev_row.append (dev_label);
+		dev_label.add_css_class ("caption");
+		bg_dev_row.append (dev_label);
 		bg_dev_switch = new Gtk.Switch ();
 		bg_dev_switch.set_active (model.show_dev_badge);
-		dev_row.append (bg_dev_switch);
-		bg_props_area.append (dev_row);
+		bg_dev_row.append (bg_dev_switch);
+		bg_props_area.append (bg_dev_row);
+
+		// Group properties
+		group_blend_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		group_blend_box.add_css_class ("mini-content-block");
+		var group_blend_label = new Gtk.Label ("Blend Mode") { xalign = 0.0f, hexpand = true };
+		group_blend_label.add_css_class ("caption");
+		group_blend_box.append (group_blend_label);
+		group_blend_drop = new Gtk.DropDown.from_strings (blend_labels);
+		group_blend_box.append (group_blend_drop);
+		group_props_area.append (group_blend_box);
+
+		var group_raised_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		group_raised_box.add_css_class ("mini-content-block");
+		var group_raised_label = new Gtk.Label ("Raised Effect") { xalign = 0.0f, hexpand = true };
+		group_raised_label.add_css_class ("caption");
+		group_raised_box.append (group_raised_label);
+		group_raised_toggle = new Gtk.Switch ();
+		group_raised_toggle.set_valign (Gtk.Align.CENTER);
+		group_raised_box.append (group_raised_toggle);
+		group_props_area.append (group_raised_box);
+
+		var group_shadow_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		group_shadow_box.add_css_class ("mini-content-block");
+		var group_shadow_label = new Gtk.Label ("Shadow") { xalign = 0.0f, hexpand = true };
+		group_shadow_label.add_css_class ("caption");
+		group_shadow_box.append (group_shadow_label);
+		group_shadow_toggle = new Gtk.Switch ();
+		group_shadow_toggle.set_valign (Gtk.Align.CENTER);
+		group_shadow_box.append (group_shadow_toggle);
+		group_props_area.append (group_shadow_box);
 
 		// Element properties
-		var pos_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
+		pos_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
 		pos_box.add_css_class ("mini-content-block");
 		x_entry = new Gtk.SpinButton.with_range (0, 109, 1);
 		y_entry = new Gtk.SpinButton.with_range (0, 109, 1);
 		var x_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
-		x_box.append (new Gtk.Label ("X") { xalign = 0.0f, hexpand = true });
+		var x_label = new Gtk.Label ("X") { xalign = 0.0f, hexpand = true };
+		x_label.add_css_class ("caption");
+		x_box.append (x_label);
 		x_box.append (x_entry);
 		pos_box.append (x_box);
 		var y_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
-		y_box.append (new Gtk.Label ("Y") { xalign = 0.0f, hexpand = true });
+		var y_label = new Gtk.Label ("Y") { xalign = 0.0f, hexpand = true };
+		y_label.add_css_class ("caption");
+		y_box.append (y_label);
 		y_box.append (y_entry);
 		pos_box.append (y_box);
 		props_area.append (pos_box);
@@ -490,130 +607,188 @@ public class IconMakerWindow : He.ApplicationWindow {
 		w_entry = new Gtk.SpinButton.with_range (1, 109, 1);
 		h_entry = new Gtk.SpinButton.with_range (1, 109, 1);
 		var width_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
-		width_box.append (new Gtk.Label ("Width") { xalign = 0.0f, hexpand = true });
+		var width_label = new Gtk.Label ("Width") { xalign = 0.0f, hexpand = true };
+		width_label.add_css_class ("caption");
+		width_box.append (width_label);
 		width_box.append (w_entry);
 		size_box.append (width_box);
 		var height_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
-		height_box.append (new Gtk.Label ("Height") { xalign = 0.0f, hexpand = true });
+		var height_label = new Gtk.Label ("Height") { xalign = 0.0f, hexpand = true };
+		height_label.add_css_class ("caption");
+		height_box.append (height_label);
 		height_box.append (h_entry);
 		size_box.append (height_box);
 		props_area.append (size_box);
 
-		line_controls_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		line_controls_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
 		line_controls_box.add_css_class ("mini-content-block");
-		line_length_spin = new Gtk.SpinButton.with_range (1, 156, 1);
+		line_length_spin = new Gtk.SpinButton.with_range (1, 155, 1);
 		line_angle_spin = new Gtk.SpinButton.with_range (0, 360, 1);
-		line_controls_box.append (new Gtk.Label ("Length") { xalign = 0.0f, hexpand = true });
-		line_controls_box.append (line_length_spin);
-		line_controls_box.append (new Gtk.Label ("Angle") { xalign = 0.0f, hexpand = true });
-		line_controls_box.append (line_angle_spin);
+		var line_length_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		var line_length_label = new Gtk.Label ("Length") { xalign = 0.0f, hexpand = true };
+		line_length_label.add_css_class ("caption");
+		line_length_row.append (line_length_label);
+		line_length_row.append (line_length_spin);
+		line_controls_box.append (line_length_row);
+		var line_angle_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		var line_angle_label = new Gtk.Label ("Angle") { xalign = 0.0f, hexpand = true };
+		line_angle_label.add_css_class ("caption");
+		line_angle_row.append (line_angle_label);
+		line_angle_row.append (line_angle_spin);
+		line_controls_box.append (line_angle_row);
 		line_controls_box.set_visible (false);
 		props_area.append (line_controls_box);
 
-		// Fill (hidden for Line)
-		var fill_color_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
-		fill_color_box.add_css_class ("mini-content-block");
+		element_angle_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		element_angle_box.add_css_class ("mini-content-block");
+		element_angle_spin = new Gtk.SpinButton.with_range (0, 360, 1);
+		var rotation_label = new Gtk.Label ("Rotation") { xalign = 0.0f, hexpand = true };
+		rotation_label.add_css_class ("caption");
+		element_angle_box.append (rotation_label);
+		element_angle_box.append (element_angle_spin);
+		props_area.append (element_angle_box);
+
+		// Fill controls (grouped)
+		fill_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
+		fill_box.add_css_class ("mini-content-block");
+
 		fill_label = new Gtk.Label ("Fill Color");
 		fill_label.set_xalign (0.0f);
 		fill_label.set_hexpand (true);
+		fill_label.add_css_class ("caption");
 		Gdk.RGBA default_fill = { 0 };
 		default_fill.parse ("#ffffff");
 		fill_btn = create_color_button (default_fill);
-		fill_color_box.append (fill_label);
-		fill_color_box.append (fill_btn);
-		props_area.append (fill_color_box);
+		var fill_color_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		fill_color_row.append (fill_label);
+		fill_color_row.append (fill_btn);
+		fill_box.append (fill_color_row);
 
-		// Fill mode
-		var fill_color_mode_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
-		fill_color_mode_row.add_css_class ("mini-content-block");
-		fill_mode_label = new Gtk.Label ("Fill Color Mode");
+		fill_mode_label = new Gtk.Label ("Fill Mode");
 		fill_mode_label.set_xalign (0.0f);
 		fill_mode_label.set_hexpand (true);
+		fill_mode_label.add_css_class ("caption");
 		fill_mode_drop = new Gtk.DropDown.from_strings (new string[] { "Solid", "Gradient" });
-		fill_color_mode_row.append (fill_mode_label);
-		fill_color_mode_row.append (fill_mode_drop);
-		props_area.append (fill_color_mode_row);
+		var fill_mode_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		fill_mode_row.append (fill_mode_label);
+		fill_mode_row.append (fill_mode_drop);
+		fill_box.append (fill_mode_row);
 
-		fill_gradient_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
-		fill_gradient_box.add_css_class ("mini-content-block");
-		fill_gradient_box.set_visible (false);
-		var fill_gradient_color_label = new Gtk.Label ("Gradient End Color");
-		fill_gradient_color_label.set_xalign (0.0f);
-		fill_gradient_color_label.set_hexpand (true);
-		Gdk.RGBA default_gradient = { 0 };
-		default_gradient.parse ("#888888");
-		fill_gradient_btn = create_color_button (default_gradient);
-		fill_gradient_angle_label = new Gtk.Label ("Gradient Angle");
+		fill_opacity_spin = new Gtk.SpinButton.with_range (0, 100, 1);
+		var fill_opacity_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		var fill_opacity_label = new Gtk.Label ("Fill Opacity (%)") { xalign = 0.0f, hexpand = true };
+		fill_opacity_label.add_css_class ("caption");
+		fill_opacity_row.append (fill_opacity_label);
+		fill_opacity_row.append (fill_opacity_spin);
+		fill_box.append (fill_opacity_row);
+
+		fill_gradient_btn = create_color_button ({ 0.533f, 0.533f, 0.533f, 1.0f });
+		fill_gradient_angle_label = new Gtk.Label ("Gradient End");
 		fill_gradient_angle_label.set_xalign (0.0f);
 		fill_gradient_angle_label.set_hexpand (true);
+		fill_gradient_angle_label.add_css_class ("caption");
+		fill_gradient_color_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		fill_gradient_color_row.append (fill_gradient_angle_label);
+		fill_gradient_color_row.append (fill_gradient_btn);
+		fill_gradient_color_row.set_visible (false);
+		fill_box.append (fill_gradient_color_row);
+
 		fill_gradient_angle_spin = new Gtk.SpinButton.with_range (0, 360, 1);
 		fill_gradient_angle_spin.set_value (0.0);
-		fill_gradient_box.append (fill_gradient_color_label);
-		fill_gradient_box.append (fill_gradient_btn);
-		fill_gradient_angle_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
-		fill_gradient_angle_box.add_css_class ("mini-content-block");
-		fill_gradient_angle_box.set_visible (false);
-		fill_gradient_angle_box.append (fill_gradient_angle_label);
-		fill_gradient_angle_box.append (fill_gradient_angle_spin);
-		props_area.append (fill_gradient_box);
-		props_area.append (fill_gradient_angle_box);
+		fill_gradient_angle_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		var gradient_angle_label2 = new Gtk.Label ("Gradient Angle") { xalign = 0.0f, hexpand = true };
+		gradient_angle_label2.add_css_class ("caption");
+		fill_gradient_angle_row.append (gradient_angle_label2);
+		fill_gradient_angle_row.append (fill_gradient_angle_spin);
+		fill_gradient_angle_row.set_visible (false);
+		fill_box.append (fill_gradient_angle_row);
 
-		fill_opacity_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
-		fill_opacity_box.add_css_class ("mini-content-block");
-		fill_opacity_spin = new Gtk.SpinButton.with_range (0, 100, 1);
-		fill_opacity_box.append (new Gtk.Label ("Fill Opacity (%)") { xalign = 0.0f, hexpand = true });
-		fill_opacity_box.append (fill_opacity_spin);
-		props_area.append (fill_opacity_box);
+		props_area.append (fill_box);
 
-		// Stroke
-		stroke_color_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
-		stroke_color_box.add_css_class ("mini-content-block");
-		stroke_label = new Gtk.Label ("Stroke");
+		// Stroke controls (grouped)
+		stroke_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
+		stroke_box.add_css_class ("mini-content-block");
+
+		stroke_label = new Gtk.Label ("Stroke Color");
 		stroke_label.set_xalign (0.0f);
 		stroke_label.set_hexpand (true);
+		stroke_label.add_css_class ("caption");
 		Gdk.RGBA default_stroke = { 0 };
 		default_stroke.parse ("#000000");
 		stroke_btn = create_color_button (default_stroke);
-		stroke_color_box.append (stroke_label);
-		stroke_color_box.append (stroke_btn);
-		props_area.append (stroke_color_box);
+		var stroke_color_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		stroke_color_row.append (stroke_label);
+		stroke_color_row.append (stroke_btn);
+		stroke_box.append (stroke_color_row);
 
-		stroke_opacity_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
-		stroke_opacity_box.add_css_class ("mini-content-block");
 		stroke_opacity_spin = new Gtk.SpinButton.with_range (0, 100, 1);
-		stroke_opacity_box.append (new Gtk.Label ("Stroke Opacity (%)") { xalign = 0.0f, hexpand = true });
-		stroke_opacity_box.append (stroke_opacity_spin);
-		props_area.append (stroke_opacity_box);
+		var stroke_opacity_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		var stroke_opacity_label = new Gtk.Label ("Stroke Opacity (%)") { xalign = 0.0f, hexpand = true };
+		stroke_opacity_label.add_css_class ("caption");
+		stroke_opacity_row.append (stroke_opacity_label);
+		stroke_opacity_row.append (stroke_opacity_spin);
+		stroke_box.append (stroke_opacity_row);
 
-		stroke_width_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
-		stroke_width_box.add_css_class ("mini-content-block");
 		stroke_width_spin = new Gtk.SpinButton.with_range (0, 20, 0.5);
 		stroke_width_spin.set_digits (1);
-		stroke_width_box.append (new Gtk.Label ("Stroke Width") { xalign = 0.0f, hexpand = true });
-		stroke_width_box.append (stroke_width_spin);
-		props_area.append (stroke_width_box);
+		var stroke_width_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		var stroke_width_label = new Gtk.Label ("Stroke Width") { xalign = 0.0f, hexpand = true };
+		stroke_width_label.add_css_class ("caption");
+		stroke_width_row.append (stroke_width_label);
+		stroke_width_row.append (stroke_width_spin);
+		stroke_box.append (stroke_width_row);
 
-		blend_drop_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
-		blend_drop_box.add_css_class ("mini-content-block");
-		blend_drop_box.append (new Gtk.Label ("Blend Mode") { xalign = 0.0f, hexpand = true });
-		blend_drop = new Gtk.DropDown.from_strings (blend_labels);
-		blend_drop_box.append (blend_drop);
-		props_area.append (blend_drop_box);
+		props_area.append (stroke_box);
 
 		// Signals
 
 		listbox.row_selected.connect ((lb, row) => {
 			if (row == null) {
 				model.background_selected = false;
-				model.selected_index = -1;
+				model.group_selected = false;
+				model.selected_group_index = -1;
+				model.selected_element_index = -1;
 			} else {
 				int ridx = row.get_index ();
 				if (ridx == 0) {
 					model.background_selected = true;
-					model.selected_index = -1;
+					model.group_selected = false;
+					model.selected_group_index = -1;
+					model.selected_element_index = -1;
 				} else {
 					model.background_selected = false;
-					model.selected_index = ridx - 1;
+					model.group_selected = false;
+					// Calculate which group and element based on flat index
+					// Each group has: 1 header row + N element rows
+					int flat_idx = ridx - 1;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     // subtract background row
+					int count = 0;
+					bool found = false;
+					for (int g = 0; g < (int) model.groups.get_n_items (); g++) {
+						var group = (ElementGroup) model.groups.get_item ((uint) g);
+						int ne = (int) group.elements.get_n_items ();
+						// Check if flat_idx points to this group's header
+						if (flat_idx == count) {
+							// Selected group header
+							model.group_selected = true;
+							model.selected_group_index = g;
+							model.selected_element_index = -1;
+							found = true;
+							break;
+						}
+						count++;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         // group header
+						// Check if flat_idx is within this group's elements
+						if (flat_idx < count + ne) {
+							model.selected_group_index = g;
+							model.selected_element_index = flat_idx - count;
+							found = true;
+							break;
+						}
+						count += ne;
+					}
+					if (!found) {
+						model.selected_group_index = -1;
+						model.selected_element_index = -1;
+					}
 				}
 			}
 			update_properties_visibility ();
@@ -621,14 +796,10 @@ public class IconMakerWindow : He.ApplicationWindow {
 		});
 
 		add_rect_btn.clicked.connect (() => {
-			model.elements.append (new IconElement (ElementType.RECTANGLE));
-			refresh_listbox ();
-			canvas.queue_draw ();
+			add_element_in_new_group (new IconElement (ElementType.RECTANGLE));
 		});
 		add_circle_btn.clicked.connect (() => {
-			model.elements.append (new IconElement (ElementType.CIRCLE));
-			refresh_listbox ();
-			canvas.queue_draw ();
+			add_element_in_new_group (new IconElement (ElementType.CIRCLE));
 		});
 		add_line_btn.clicked.connect (() => {
 			var e = new IconElement (ElementType.LINE);
@@ -636,9 +807,28 @@ public class IconMakerWindow : He.ApplicationWindow {
 			e.line_angle = 0.0;
 			e.gradient_secondary = e.stroke;
 			refresh_line_deltas (e);
-			model.elements.append (e);
-			refresh_listbox ();
-			canvas.queue_draw ();
+			add_element_in_new_group (e);
+		});
+
+		add_svg_btn.clicked.connect (() => {
+			var file_chooser = new Gtk.FileDialog ();
+			var filter = new Gtk.FileFilter ();
+			filter.set_filter_name ("SVG Files");
+			filter.add_mime_type ("image/svg+xml");
+			filter.add_pattern ("*.svg");
+			var filters = new GLib.ListStore (typeof (Gtk.FileFilter));
+			filters.append (filter);
+			file_chooser.set_filters (filters);
+			file_chooser.open.begin (this, null, (obj, res) => {
+				try {
+					var file = file_chooser.open.end (res);
+					if (file != null) {
+						load_svg_file (file);
+					}
+				} catch (Error e) {
+					// User cancelled or error occurred
+				}
+			});
 		});
 
 		reorder_toggle.toggled.connect (() => {
@@ -659,18 +849,33 @@ public class IconMakerWindow : He.ApplicationWindow {
 			float relx = x - ox;
 			float rely = y - oy;
 
-			model.selected_index = -1;
+			model.selected_group_index = -1;
+			model.selected_element_index = -1;
 			model.background_selected = false;
-			int n = (int) model.elements.get_n_items ();
-			for (int i = n - 1; i >= 0; i--) {
-				var el = (IconElement) model.elements.get_item ((uint) i);
-				if (relx >= el.x && relx <= el.x + el.width && rely >= el.y && rely <= el.y + el.height) {
-					model.selected_index = i;
-					break;
+			for (int grp = (int) model.groups.get_n_items () - 1; grp >= 0; grp--) {
+				var group = (ElementGroup) model.groups.get_item ((uint) grp);
+				int ne = (int) group.elements.get_n_items ();
+				for (int i = ne - 1; i >= 0; i--) {
+					var el = (IconElement) group.elements.get_item ((uint) i);
+					if (relx >= el.x && relx <= el.x + el.width && rely >= el.y && rely <= el.y + el.height) {
+						model.selected_group_index = grp;
+						model.selected_element_index = i;
+						break;
+					}
 				}
+				if (model.selected_element_index >= 0)break;
 			}
-			if (model.selected_index >= 0) {
-				var row2 = listbox.get_row_at_index (model.selected_index + 1);
+			if (model.selected_group_index >= 0 && model.selected_element_index >= 0) {
+				// Calculate flat index with group headers
+				int flat_index = 1;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // background row
+				for (int grp2 = 0; grp2 < model.selected_group_index; grp2++) {
+					var group = (ElementGroup) model.groups.get_item ((uint) grp2);
+					flat_index++;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     // group header
+					flat_index += (int) group.elements.get_n_items ();
+				}
+				flat_index++;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // selected group's header
+				flat_index += model.selected_element_index;
+				var row2 = listbox.get_row_at_index (flat_index);
 				if (row2 != null)listbox.select_row (row2);
 			} else {
 				listbox.unselect_all ();
@@ -682,46 +887,46 @@ public class IconMakerWindow : He.ApplicationWindow {
 		// Element property handlers
 		x_entry.value_changed.connect (() => {
 			if (updating_properties)return;
-			if (model.selected_index < 0)return;
-			var el = (IconElement) model.elements.get_item ((uint) model.selected_index);
+			var el = get_selected_element ();
+			if (el == null)return;
 			el.x = (float) GLib.Math.fmin (GLib.Math.fmax ((float) x_entry.get_value (), 0.0f), 109.0f);
 			canvas.queue_draw ();
 		});
 		y_entry.value_changed.connect (() => {
 			if (updating_properties)return;
-			if (model.selected_index < 0)return;
-			var el = (IconElement) model.elements.get_item ((uint) model.selected_index);
+			var el = get_selected_element ();
+			if (el == null)return;
 			el.y = (float) GLib.Math.fmin (GLib.Math.fmax ((float) y_entry.get_value (), 0.0f), 109.0f);
 			canvas.queue_draw ();
 		});
 		w_entry.value_changed.connect (() => {
 			if (updating_properties)return;
-			if (model.selected_index < 0)return;
-			var el = (IconElement) model.elements.get_item ((uint) model.selected_index);
+			var el = get_selected_element ();
+			if (el == null)return;
 			if (el.type == ElementType.LINE)return;
 			el.width = (float) GLib.Math.fmin (GLib.Math.fmax ((float) w_entry.get_value (), 1.0f), 109.0f);
 			canvas.queue_draw ();
 		});
 		h_entry.value_changed.connect (() => {
 			if (updating_properties)return;
-			if (model.selected_index < 0)return;
-			var el = (IconElement) model.elements.get_item ((uint) model.selected_index);
+			var el = get_selected_element ();
+			if (el == null)return;
 			if (el.type == ElementType.LINE)return;
 			el.height = (float) GLib.Math.fmin (GLib.Math.fmax ((float) h_entry.get_value (), 1.0f), 109.0f);
 			canvas.queue_draw ();
 		});
 		stroke_width_spin.value_changed.connect (() => {
 			if (updating_properties)return;
-			if (model.selected_index < 0)return;
-			var el = (IconElement) model.elements.get_item ((uint) model.selected_index);
+			var el = get_selected_element ();
+			if (el == null)return;
 			el.stroke_width = (float) stroke_width_spin.get_value ();
 			canvas.queue_draw ();
 		});
 
 		line_length_spin.value_changed.connect (() => {
 			if (updating_properties)return;
-			if (model.selected_index < 0)return;
-			var el = (IconElement) model.elements.get_item ((uint) model.selected_index);
+			var el = get_selected_element ();
+			if (el == null)return;
 			if (el.type != ElementType.LINE)return;
 			float value = (float) GLib.Math.fmax (line_length_spin.get_value (), 1.0);
 			el.line_length = value;
@@ -731,18 +936,26 @@ public class IconMakerWindow : He.ApplicationWindow {
 
 		line_angle_spin.value_changed.connect (() => {
 			if (updating_properties)return;
-			if (model.selected_index < 0)return;
-			var el = (IconElement) model.elements.get_item ((uint) model.selected_index);
+			var el = get_selected_element ();
+			if (el == null)return;
 			if (el.type != ElementType.LINE)return;
 			el.line_angle = line_angle_spin.get_value ();
 			refresh_line_deltas (el);
 			canvas.queue_draw ();
 		});
 
+		element_angle_spin.value_changed.connect (() => {
+			if (updating_properties)return;
+			var el = get_selected_element ();
+			if (el == null)return;
+			el.element_angle = element_angle_spin.get_value ();
+			canvas.queue_draw ();
+		});
+
 		fill_btn.clicked.connect (() => {
 			if (updating_properties)return;
-			if (model.selected_index < 0)return;
-			var el = (IconElement) model.elements.get_item ((uint) model.selected_index);
+			var el = get_selected_element ();
+			if (el == null)return;
 			if (el.type == ElementType.LINE)return;
 			show_color_picker_popover (fill_btn, get_color_button_color (fill_btn), (new_color) => {
 				float a = (float) (fill_opacity_spin.get_value () / 100.0);
@@ -758,8 +971,8 @@ public class IconMakerWindow : He.ApplicationWindow {
 		});
 		stroke_btn.clicked.connect (() => {
 			if (updating_properties)return;
-			if (model.selected_index < 0)return;
-			var el = (IconElement) model.elements.get_item ((uint) model.selected_index);
+			var el = get_selected_element ();
+			if (el == null)return;
 			show_color_picker_popover (stroke_btn, get_color_button_color (stroke_btn), (new_color) => {
 				float a = (float) (stroke_opacity_spin.get_value () / 100.0);
 				a = IconiUtils.clampf (a, 0.0f, 1.0f);
@@ -778,18 +991,18 @@ public class IconMakerWindow : He.ApplicationWindow {
 		fill_mode_drop.notify.connect ((pspec) => {
 			if (updating_properties)return;
 			if (pspec.name != "selected")return;
-			if (model.selected_index < 0)return;
-			var el = (IconElement) model.elements.get_item ((uint) model.selected_index);
+			var el = get_selected_element ();
+			if (el == null)return;
 			el.use_gradient = (fill_mode_drop.get_selected () == 1u);
-			fill_gradient_box.set_visible (el.use_gradient);
-			fill_gradient_angle_box.set_visible (el.use_gradient);
+			fill_gradient_color_row.set_visible (el.use_gradient);
+			fill_gradient_angle_row.set_visible (el.use_gradient);
 			canvas.queue_draw ();
 		});
 
 		fill_gradient_btn.clicked.connect (() => {
 			if (updating_properties)return;
-			if (model.selected_index < 0)return;
-			var el = (IconElement) model.elements.get_item ((uint) model.selected_index);
+			var el = get_selected_element ();
+			if (el == null)return;
 			show_color_picker_popover (fill_gradient_btn, get_color_button_color (fill_gradient_btn), (new_color) => {
 				if (el.type == ElementType.LINE) {
 					new_color.alpha = el.stroke.alpha;
@@ -804,16 +1017,16 @@ public class IconMakerWindow : He.ApplicationWindow {
 
 		fill_gradient_angle_spin.value_changed.connect (() => {
 			if (updating_properties)return;
-			if (model.selected_index < 0)return;
-			var el = (IconElement) model.elements.get_item ((uint) model.selected_index);
+			var el = get_selected_element ();
+			if (el == null)return;
 			el.gradient_angle = fill_gradient_angle_spin.get_value ();
 			canvas.queue_draw ();
 		});
 
 		fill_opacity_spin.value_changed.connect (() => {
 			if (updating_properties)return;
-			if (model.selected_index < 0)return;
-			var el = (IconElement) model.elements.get_item ((uint) model.selected_index);
+			var el = get_selected_element ();
+			if (el == null)return;
 			if (el.type == ElementType.LINE)return;
 			float a = (float) (fill_opacity_spin.get_value () / 100.0);
 			a = IconiUtils.clampf (a, 0.0f, 1.0f);
@@ -827,8 +1040,8 @@ public class IconMakerWindow : He.ApplicationWindow {
 		});
 		stroke_opacity_spin.value_changed.connect (() => {
 			if (updating_properties)return;
-			if (model.selected_index < 0)return;
-			var el = (IconElement) model.elements.get_item ((uint) model.selected_index);
+			var el = get_selected_element ();
+			if (el == null)return;
 			float a = (float) (stroke_opacity_spin.get_value () / 100.0);
 			a = IconiUtils.clampf (a, 0.0f, 1.0f);
 			var rgba = el.stroke;
@@ -839,17 +1052,6 @@ public class IconMakerWindow : He.ApplicationWindow {
 				grad.alpha = rgba.alpha;
 				el.gradient_secondary = grad;
 			}
-			canvas.queue_draw ();
-		});
-
-		blend_drop.notify.connect ((pspec) => {
-			if (updating_properties)return;
-			if (pspec.name != "selected")return;
-			if (model.selected_index < 0)return;
-			uint idx = blend_drop.get_selected ();
-			if (idx >= blend_values.length)return;
-			var el = (IconElement) model.elements.get_item ((uint) model.selected_index);
-			el.blend_mode = blend_values[(int) idx];
 			canvas.queue_draw ();
 		});
 
@@ -880,6 +1082,40 @@ public class IconMakerWindow : He.ApplicationWindow {
 			show_color_picker_popover (bg_side_color_btn, get_color_button_color (bg_side_color_btn), (new_color) => {
 				update_bg_color (new_color);
 			});
+		});
+
+		// Group property handlers
+		group_blend_drop.notify.connect ((pspec) => {
+			if (updating_properties)return;
+			if (pspec.name != "selected")return;
+			if (model.selected_group_index < 0)return;
+			uint idx = group_blend_drop.get_selected ();
+			if (idx >= blend_labels.length)return;
+			var group = (ElementGroup?) model.groups.get_item ((uint) model.selected_group_index);
+			if (group != null) {
+				group.blend_mode = blend_values[(int) idx];
+				canvas.queue_draw ();
+			}
+		});
+		group_raised_toggle.state_set.connect ((w, state) => {
+			if (updating_properties)return false;
+			if (model.selected_group_index < 0)return false;
+			var group = (ElementGroup?) model.groups.get_item ((uint) model.selected_group_index);
+			if (group != null) {
+				group.use_raised_effect = state;
+				canvas.queue_draw ();
+			}
+			return false;
+		});
+		group_shadow_toggle.state_set.connect ((w, state) => {
+			if (updating_properties)return false;
+			if (model.selected_group_index < 0)return false;
+			var group = (ElementGroup?) model.groups.get_item ((uint) model.selected_group_index);
+			if (group != null) {
+				group.use_shadow = state;
+				canvas.queue_draw ();
+			}
+			return false;
 		});
 		bg_side_wall_switch.state_set.connect ((w, state) => {
 			if (updating_properties)return false;
@@ -982,56 +1218,140 @@ public class IconMakerWindow : He.ApplicationWindow {
 			row.set_size_request (-1, 42);
 			var h = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
 			h.add_css_class ("mini-content-block");
-			var lbl = new Gtk.Label ("Background");
+			var lbl = new Gtk.Label (model.name);
+			lbl.add_css_class ("cb-title");
+			lbl.add_css_class ("caption");
 			lbl.set_xalign (0.0f);
 			lbl.set_hexpand (true);
 			h.append (lbl);
 			row.set_child (h);
 			listbox.append (row);
 		}
-		// Elements
-		int n = (int) model.elements.get_n_items ();
-		for (int i = 0; i < n; i++) {
-			int idx = i;
-			var el = (IconElement) model.elements.get_item ((uint) i);
-			var row = new Gtk.ListBoxRow ();
-			row.set_size_request (-1, 42);
-			var h = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
-			h.add_css_class ("mini-content-block");
-			var lbl = new Gtk.Label (element_label (el));
-			lbl.set_xalign (0.0f);
-			lbl.set_hexpand (true);
-			h.append (lbl);
+		// Groups and elements
+		int ng = (int) model.groups.get_n_items ();
+		for (int g = 0; g < ng; g++) {
+			int group_idx = g;
+			var group = (ElementGroup) model.groups.get_item ((uint) g);
 
-			if (model.reorder_mode) {
-				var up = new Gtk.Button.from_icon_name ("go-up-symbolic");
-				var down = new Gtk.Button.from_icon_name ("go-down-symbolic");
-				up.set_tooltip_text ("Move up");
-				down.set_tooltip_text ("Move down");
-				up.set_sensitive (idx > 0);
-				down.set_sensitive (idx < n - 1);
-				up.clicked.connect (() => { move_item (idx, idx - 1); });
-				down.clicked.connect (() => { move_item (idx, idx + 1); });
-				h.append (up);
-				h.append (down);
+			// Group header row
+			{
+				var row = new Gtk.ListBoxRow ();
+				row.set_size_request (-1, 42);
+				var h = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+				h.add_css_class ("mini-content-block");
+				h.set_margin_start (8);
+				var lbl = new Gtk.Label ("Group");
+				lbl.add_css_class ("caption");
+				lbl.set_xalign (0.0f);
+				lbl.set_hexpand (true);
+				h.append (lbl);
+				row.set_child (h);
+
+				if (model.reorder_mode) {
+					// Drop target on group header to allow dropping into empty groups
+					var drop_target = new Gtk.DropTarget (typeof (string), Gdk.DragAction.MOVE);
+					drop_target.drop.connect ((dt, val, x, y) => {
+						var drag_data = (string) val;
+						var parts = drag_data.split (":");
+						if (parts.length == 2) {
+							int src_group = int.parse (parts[0]);
+							int src_elem = int.parse (parts[1]);
+							if (src_group != group_idx) {
+								int target_pos = (int) group.elements.get_n_items ();
+								move_element_between_groups (src_group, src_elem, group_idx, target_pos);
+							}
+						}
+						return true;
+					});
+					row.add_controller (drop_target);
+				}
+
+				listbox.append (row);
 			}
 
-			var rem = new Gtk.Button.from_icon_name ("edit-delete-symbolic");
-			rem.set_tooltip_text ("Remove");
-			rem.set_valign (Gtk.Align.CENTER);
-			rem.clicked.connect (() => { remove_element_at (idx); });
-			h.append (rem);
+			int ne = (int) group.elements.get_n_items ();
+			for (int i = 0; i < ne; i++) {
+				int elem_idx = i;
+				var el = (IconElement) group.elements.get_item ((uint) i);
+				var row = new Gtk.ListBoxRow ();
+				row.set_size_request (-1, 42);
+				var h = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+				h.add_css_class ("mini-content-block");
+				h.set_margin_start (16);
 
-			row.set_child (h);
-			listbox.append (row);
+				// Mini canvas preview
+				var mini_canvas = new Gtk.DrawingArea ();
+				mini_canvas.set_content_width (32);
+				mini_canvas.set_content_height (32);
+				mini_canvas.set_draw_func ((da, cr, w, h) => {
+					render_mini_element (cr, el, 32);
+				});
+				h.append (mini_canvas);
+
+				var lbl = new Gtk.Label (element_label (el));
+				lbl.set_xalign (0.0f);
+				lbl.set_hexpand (true);
+				h.append (lbl);
+
+				if (model.reorder_mode) {
+					// Drag source
+					var drag_source = new Gtk.DragSource ();
+					drag_source.set_actions (Gdk.DragAction.MOVE);
+					drag_source.prepare.connect ((ds, x, y) => {
+						var drag_data = @"$group_idx:$elem_idx";
+						var val = GLib.Value (typeof (string));
+						val.set_string (drag_data);
+						return new Gdk.ContentProvider.for_value (val);
+					});
+					row.add_controller (drag_source);
+
+					// Drop target
+					var drop_target = new Gtk.DropTarget (typeof (string), Gdk.DragAction.MOVE);
+					drop_target.drop.connect ((dt, val, x, y) => {
+						var drag_data = (string) val;
+						var parts = drag_data.split (":");
+						if (parts.length == 2) {
+							int src_group = int.parse (parts[0]);
+							int src_elem = int.parse (parts[1]);
+							if (src_group != group_idx) {
+								move_element_between_groups (src_group, src_elem, group_idx, elem_idx);
+							}
+						}
+						return true;
+					});
+					row.add_controller (drop_target);
+				}
+
+				var rem = new He.Button ("edit-delete-symbolic", "");
+				rem.set_tooltip_text ("Remove");
+				rem.is_iconic = true;
+				rem.set_valign (Gtk.Align.CENTER);
+				rem.clicked.connect (() => { remove_element_at (group_idx, elem_idx); });
+				h.append (rem);
+
+				row.set_child (h);
+				listbox.append (row);
+			}
 		}
 
 		// Restore selection
 		if (model.background_selected) {
 			var r0 = listbox.get_row_at_index (0);
 			if (r0 != null)listbox.select_row (r0);
-		} else if (model.selected_index >= 0) {
-			var r2 = listbox.get_row_at_index (model.selected_index + 1);
+		} else if (model.selected_group_index >= 0 && model.selected_element_index >= 0) {
+			// Calculate flat index: 1 (background) + sum of (1 header + elements) for previous groups + 1 header + element index
+			int flat_index = 1;
+			for (int g = 0; g < (int) model.groups.get_n_items (); g++) {
+				var group = (ElementGroup) model.groups.get_item ((uint) g);
+				int ne = (int) group.elements.get_n_items ();
+				flat_index++;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // group header
+				if (g == model.selected_group_index) {
+					flat_index += model.selected_element_index;
+					break;
+				}
+				flat_index += ne;
+			}
+			var r2 = listbox.get_row_at_index (flat_index);
 			if (r2 != null)listbox.select_row (r2);
 		} else {
 			listbox.unselect_all ();
@@ -1041,24 +1361,121 @@ public class IconMakerWindow : He.ApplicationWindow {
 	private string element_label (IconElement e) {
 		switch (e.type) {
 		case ElementType.RECTANGLE : return "Rectangle";
-		case ElementType.CIRCLE: return "Circle";
-		case ElementType.LINE: return "Line";
+		case ElementType.CIRCLE : return "Circle";
+		case ElementType.LINE : return "Line";
+		case ElementType.SVG : return "SVG";
 		}
 		return "Element";
 	}
 
-	private void remove_element_at (int index) {
-		uint count = model.elements.get_n_items ();
-		if (index < 0 || index >= (int) count)return;
-		model.elements.remove ((uint) index);
-		int remaining = (int) model.elements.get_n_items ();
+	private void render_mini_element (Cairo.Context cr, IconElement el, int size) {
+		// Light checkerboard background
+		draw_rounded_rect_path (cr, 0.0, 0.0, (double) size, (double) size, 2.0);
+		cr.clip ();
+
+		int checker_size = 4;
+		for (int y = 0; y < size; y += checker_size) {
+			for (int x = 0; x < size; x += checker_size) {
+				if ((x / checker_size + y / checker_size) % 2 == 0) {
+					cr.set_source_rgba (0.9, 0.9, 0.9, 1.0);
+				} else {
+					cr.set_source_rgba (0.8, 0.8, 0.8, 1.0);
+				}
+				cr.rectangle ((double) x, (double) y, (double) checker_size, (double) checker_size);
+				cr.fill ();
+			}
+		}
+		cr.reset_clip ();
+
+		// Calculate scaling to fit element in mini canvas
+		double scale = (double) size / 109.0;
+		double ex = el.x * scale;
+		double ey = el.y * scale;
+		double ew = el.width * scale;
+		double eh = el.height * scale;
+
+		cr.save ();
+		if (el.element_angle != 0.0) {
+			double center_x = ex + ew / 2.0;
+			double center_y = ey + eh / 2.0;
+			cr.translate (center_x, center_y);
+			cr.rotate (el.element_angle * (GLib.Math.PI / 180.0));
+			cr.translate (-center_x, -center_y);
+		}
+
+		if (el.type == ElementType.RECTANGLE) {
+			cr.set_source_rgba (el.fill.red, el.fill.green, el.fill.blue, el.fill.alpha);
+			cr.rectangle (ex, ey, ew, eh);
+			cr.fill_preserve ();
+			cr.set_source_rgba (el.stroke.red, el.stroke.green, el.stroke.blue, el.stroke.alpha);
+			cr.set_line_width (el.stroke_width * scale);
+			cr.stroke ();
+		} else if (el.type == ElementType.CIRCLE) {
+			double scale_x = ew / 2.0;
+			double scale_y = eh / 2.0;
+			double line_scale = (GLib.Math.fabs (scale_x) + GLib.Math.fabs (scale_y)) / 2.0;
+			if (line_scale <= 0.0)line_scale = 1.0;
+			cr.save ();
+			cr.translate (ex + ew / 2.0, ey + eh / 2.0);
+			cr.scale (scale_x, scale_y);
+			cr.arc (0.0, 0.0, 1.0, 0.0, 2.0 * GLib.Math.PI);
+			cr.restore ();
+			cr.set_source_rgba (el.fill.red, el.fill.green, el.fill.blue, el.fill.alpha);
+			cr.fill_preserve ();
+			cr.set_source_rgba (el.stroke.red, el.stroke.green, el.stroke.blue, el.stroke.alpha);
+			cr.set_line_width (el.stroke_width * scale);
+			cr.stroke ();
+		} else if (el.type == ElementType.LINE) {
+			cr.set_source_rgba (el.stroke.red, el.stroke.green, el.stroke.blue, el.stroke.alpha);
+			cr.set_line_width (el.stroke_width * scale);
+			cr.move_to (ex, ey);
+			cr.line_to (ex + ew, ey + eh);
+			cr.stroke ();
+		} else if (el.type == ElementType.SVG) {
+			try {
+				var svg_handle = new Rsvg.Handle.from_data (el.svg_data.data);
+				var viewport = Rsvg.Rectangle ();
+				viewport.x = ex;
+				viewport.y = ey;
+				viewport.width = ew;
+				viewport.height = eh;
+				svg_handle.render_document (cr, viewport);
+			} catch (Error e) {
+				warning ("Failed to render SVG in mini canvas: %s", e.message);
+			}
+		}
+
+		cr.restore ();
+	}
+
+	private void draw_rounded_rect_path (Cairo.Context cr, double x, double y, double w, double h, double radius) {
+		cr.new_path ();
+		cr.arc (x + w - radius, y + radius, radius, -GLib.Math.PI / 2.0, 0.0);
+		cr.arc (x + w - radius, y + h - radius, radius, 0.0, GLib.Math.PI / 2.0);
+		cr.arc (x + radius, y + h - radius, radius, GLib.Math.PI / 2.0, GLib.Math.PI);
+		cr.arc (x + radius, y + radius, radius, GLib.Math.PI, 3.0 * GLib.Math.PI / 2.0);
+		cr.close_path ();
+	}
+
+	private void remove_element_at (int group_index, int element_index) {
+		if (group_index < 0 || element_index < 0)return;
+		var group = (ElementGroup?) model.groups.get_item ((uint) group_index);
+		if (group == null)return;
+		uint count = group.elements.get_n_items ();
+		if (element_index >= (int) count)return;
+		group.elements.remove ((uint) element_index);
+		int remaining = (int) group.elements.get_n_items ();
 		if (remaining == 0) {
-			model.selected_index = -1;
+			// Remove the empty group
+			model.groups.remove ((uint) group_index);
+			model.selected_element_index = -1;
+			model.selected_group_index = -1;
 			model.background_selected = true;
 		} else {
-			int next_index = index;
+			int next_index = element_index;
 			if (next_index >= remaining)next_index = remaining - 1;
-			model.selected_index = next_index;
+			model.selected_element_index = next_index;
+			model.selected_group_index = group_index;
 			model.background_selected = false;
 		}
 		refresh_listbox ();
@@ -1066,22 +1483,27 @@ public class IconMakerWindow : He.ApplicationWindow {
 		canvas.queue_draw ();
 	}
 
-	private void move_item (int from, int to) {
-		uint count = model.elements.get_n_items ();
-		if (from < 0 || to < 0)return;
-		if (from >= (int) count || to >= (int) count)return;
-		if (from == to)return;
-		var item = model.elements.get_item ((uint) from);
+	private void move_element_between_groups (int src_group_idx, int src_elem_idx, int dest_group_idx, int dest_elem_idx) {
+		if (src_group_idx < 0 || dest_group_idx < 0)return;
+		if (src_elem_idx < 0 || dest_elem_idx < 0)return;
+
+		var src_group = (ElementGroup?) model.groups.get_item ((uint) src_group_idx);
+		var dest_group = (ElementGroup?) model.groups.get_item ((uint) dest_group_idx);
+		if (src_group == null || dest_group == null)return;
+
+		if (src_elem_idx >= (int) src_group.elements.get_n_items ())return;
+
+		var item = src_group.elements.get_item ((uint) src_elem_idx);
 		if (item == null)return;
-		model.elements.remove ((uint) from);
-		model.elements.insert ((uint) to, item);
-		if (model.selected_index == from) {
-			model.selected_index = to;
-		} else if (model.selected_index > from && model.selected_index <= to) {
-			model.selected_index--;
-		} else if (model.selected_index < from && model.selected_index >= to) {
-			model.selected_index++;
-		}
+
+		src_group.elements.remove ((uint) src_elem_idx);
+		dest_group.elements.insert ((uint) dest_elem_idx, item);
+
+		model.selected_group_index = dest_group_idx;
+		model.selected_element_index = dest_elem_idx;
+		model.background_selected = false;
+		model.group_selected = false;
+
 		refresh_listbox ();
 		canvas.queue_draw ();
 	}
@@ -1356,8 +1778,9 @@ public class IconMakerWindow : He.ApplicationWindow {
 		right_box.set_visible (show);
 
 		if (show) {
-			mappbar.set_margin_end (342);
-			canvas.set_margin_end (342);
+			// Allocate space for sidebar
+			mappbar.set_margin_end (348);
+			canvas.set_margin_end (348);
 			mappbar.show_right_title_buttons = false;
 		} else {
 			mappbar.set_margin_end (0);
@@ -1370,12 +1793,14 @@ public class IconMakerWindow : He.ApplicationWindow {
 		updating_properties = true;
 		try {
 			bool show_bg = model.background_selected;
-			bool show_el = (!model.background_selected && model.selected_index >= 0);
+			bool show_group = model.group_selected;
+			bool show_el = (!model.background_selected && !model.group_selected && model.selected_group_index >= 0 && model.selected_element_index >= 0);
 
 			bg_props_area.set_visible (show_bg);
+			group_props_area.set_visible (show_group);
 			props_area.set_visible (show_el);
 
-			update_sidebar_visibility (show_bg || show_el);
+			update_sidebar_visibility (show_bg || show_group || show_el);
 
 			if (show_bg) {
 				update_color_button (bg_side_color_btn, model.background);
@@ -1387,8 +1812,24 @@ public class IconMakerWindow : He.ApplicationWindow {
 				update_color_button (bg_gradient_end_btn, model.gradient_secondary);
 				bg_gradient_angle_spin.set_value (model.gradient_angle);
 			}
+			if (show_group) {
+				var group = (ElementGroup?) model.groups.get_item ((uint) model.selected_group_index);
+				if (group != null) {
+					int bidx = 0;
+					for (int i = 0; i < blend_values.length; i++) {
+						if (blend_values[i] == group.blend_mode) {
+							bidx = i;
+							break;
+						}
+					}
+					group_blend_drop.set_selected ((uint) bidx);
+					group_raised_toggle.set_active (group.use_raised_effect);
+					group_shadow_toggle.set_active (group.use_shadow);
+				}
+			}
 			if (show_el) {
-				var el = (IconElement) model.elements.get_item ((uint) model.selected_index);
+				var el = get_selected_element ();
+				if (el == null)return;
 				x_entry.set_value ((double) el.x);
 				y_entry.set_value ((double) el.y);
 				w_entry.set_value ((double) el.width);
@@ -1397,17 +1838,19 @@ public class IconMakerWindow : He.ApplicationWindow {
 				update_color_button (fill_btn, el.fill);
 				update_color_button (stroke_btn, el.stroke);
 
-				int bidx = 0;
-				for (int i = 0; i < blend_values.length; i++) {
-					if (blend_values[i] == el.blend_mode) {
-						bidx = i; break;
-					}
-				}
-				blend_drop.set_selected ((uint) bidx);
+				bool is_line = (el.type == ElementType.LINE);
+				bool show_fill = !is_line;
+				fill_box.set_visible (show_fill);
 
-				bool show_fill = (el.type != ElementType.LINE);
-				fill_btn.set_visible (show_fill);
-				fill_opacity_spin.set_sensitive (show_fill);
+				size_box.set_visible (!is_line);
+				line_controls_box.set_visible (is_line);
+
+				if (is_line) {
+					line_length_spin.set_value ((double) el.line_length);
+					line_angle_spin.set_value (el.line_angle);
+				}
+
+				element_angle_spin.set_value (el.element_angle);
 
 				fill_opacity_spin.set_value ((double) ((float) el.fill.alpha * 100.0f));
 				stroke_opacity_spin.set_value ((double) ((float) el.stroke.alpha * 100.0f));
@@ -1415,8 +1858,8 @@ public class IconMakerWindow : He.ApplicationWindow {
 				fill_mode_drop.set_selected (el.use_gradient ? 1u : 0u);
 				update_color_button (fill_gradient_btn, el.gradient_secondary);
 				fill_gradient_angle_spin.set_value (el.gradient_angle);
-				fill_gradient_box.set_visible (el.use_gradient);
-				fill_gradient_angle_box.set_visible (el.use_gradient);
+				fill_gradient_color_row.set_visible (el.use_gradient);
+				fill_gradient_angle_row.set_visible (el.use_gradient);
 			}
 			sync_gradient_controls_visibility ();
 		} finally {
@@ -1456,11 +1899,131 @@ public class IconMakerWindow : He.ApplicationWindow {
 	}
 
 	private void export_to_svg (string filename) {
-		double out_size = 128.0;
-		var surface = new Cairo.SvgSurface (filename, out_size, out_size);
-		var cr = new Cairo.Context (surface);
-		renderer.render_icon (cr, 109.0f);
-		cr.show_page ();
-		surface.finish ();
+		try {
+			var file = GLib.File.new_for_path (filename);
+			var stream = file.replace (null, false, GLib.FileCreateFlags.NONE);
+			var data_stream = new GLib.DataOutputStream (stream);
+
+			double svg_size = 128.0;
+			double icon_size = 109.0;
+			double offset = (svg_size - icon_size) / 2.0;
+			double radius = 24.0;
+
+			data_stream.put_string ("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+			data_stream.put_string ("<svg xmlns=\"http://www.w3.org/2000/svg\" ");
+			data_stream.put_string ("width=\"128\" height=\"128\" viewBox=\"0 0 128 128\">\n");
+			data_stream.put_string ("  <defs>\n");
+
+			int gradient_id = 0;
+			if (model.use_gradient) {
+				data_stream.put_string ("    <linearGradient id=\"bg-gradient\" ");
+				data_stream.put_string ("x1=\"0%%\" y1=\"0%%\" x2=\"100%%\" y2=\"100%%\" gradientTransform=\"rotate(%g 0.5 0.5)\">\n".printf (model.gradient_angle));
+				data_stream.put_string ("      <stop offset=\"0%%\" style=\"stop-color:%s;stop-opacity:%.3f\"/>\n".printf (IconiUtils.rgba_to_hex (model.background), model.background.alpha));
+				data_stream.put_string ("      <stop offset=\"100%%\" style=\"stop-color:%s;stop-opacity:%.3f\"/>\n".printf (IconiUtils.rgba_to_hex (model.gradient_secondary), model.gradient_secondary.alpha));
+				data_stream.put_string ("    </linearGradient>\n");
+			}
+
+			int ng = (int) model.groups.get_n_items ();
+			for (int g = 0; g < ng; g++) {
+				var group = (ElementGroup) model.groups.get_item ((uint) g);
+				int ne = (int) group.elements.get_n_items ();
+				for (int i = 0; i < ne; i++) {
+					var el = (IconElement) group.elements.get_item ((uint) i);
+					if (el.use_gradient) {
+						string grad_id = "gradient-%d".printf (gradient_id++);
+						data_stream.put_string ("    <linearGradient id=\"%s\" ".printf (grad_id));
+						data_stream.put_string ("gradientTransform=\"rotate(%g 0.5 0.5)\">\n".printf (el.gradient_angle));
+						data_stream.put_string ("      <stop offset=\"0%%\" style=\"stop-color:%s;stop-opacity:%.3f\"/>\n".printf (IconiUtils.rgba_to_hex (el.fill), el.fill.alpha));
+						data_stream.put_string ("      <stop offset=\"100%%\" style=\"stop-color:%s;stop-opacity:%.3f\"/>\n".printf (IconiUtils.rgba_to_hex (el.gradient_secondary), el.gradient_secondary.alpha));
+						data_stream.put_string ("    </linearGradient>\n");
+					}
+				}
+			}
+			data_stream.put_string ("  </defs>\n");
+			data_stream.put_string ("  <g id=\"icon\" transform=\"translate(%g,%g)\">\n".printf (offset, offset));
+
+			string bg_fill;
+			if (model.use_gradient) {
+				bg_fill = "url(#bg-gradient)";
+			} else {
+				bg_fill = IconiUtils.rgba_to_hex (model.background);
+			}
+			data_stream.put_string ("    <rect id=\"background\" x=\"0\" y=\"0\" width=\"%g\" height=\"%g\" rx=\"%g\" ".printf (icon_size, icon_size, radius));
+			data_stream.put_string ("fill=\"%s\" fill-opacity=\"%.3f\"/>\n".printf (bg_fill, model.use_gradient ? 1.0 : model.background.alpha));
+
+			gradient_id = 0;
+			for (int g = 0; g < ng; g++) {
+				var group = (ElementGroup) model.groups.get_item ((uint) g);
+				string group_blend_style = group.blend_mode != "normal" ? " style=\"mix-blend-mode:%s\"".printf (group.blend_mode) : "";
+				data_stream.put_string ("    <g id=\"group-%d\"%s>\n".printf (g, group_blend_style));
+
+				int ne = (int) group.elements.get_n_items ();
+				for (int i = 0; i < ne; i++) {
+					var el = (IconElement) group.elements.get_item ((uint) i);
+
+					string element_id = "element-g%d-e%d".printf (g, i);
+					string fill_value;
+					double fill_opacity;
+
+					if (el.use_gradient) {
+						fill_value = "url(#gradient-%d)".printf (gradient_id++);
+						fill_opacity = 1.0;
+					} else {
+						fill_value = IconiUtils.rgba_to_hex (el.fill);
+						fill_opacity = el.fill.alpha;
+					}
+
+					string stroke_value = IconiUtils.rgba_to_hex (el.stroke);
+					double stroke_opacity = el.stroke.alpha;
+
+					string transform_str = "";
+					if (el.element_angle != 0.0) {
+						double center_x = el.x + el.width / 2.0;
+						double center_y = el.y + el.height / 2.0;
+						transform_str = " transform=\"rotate(%g %g %g)\"".printf (el.element_angle, center_x, center_y);
+					}
+
+					if (el.type == ElementType.RECTANGLE) {
+						data_stream.put_string ("      <rect id=\"%s\" x=\"%g\" y=\"%g\" width=\"%g\" height=\"%g\" ".printf (element_id, el.x, el.y, el.width, el.height));
+						data_stream.put_string ("fill=\"%s\" fill-opacity=\"%.3f\" ".printf (fill_value, fill_opacity));
+						data_stream.put_string ("stroke=\"%s\" stroke-opacity=\"%.3f\" stroke-width=\"%g\"%s/>\n".printf (stroke_value, stroke_opacity, el.stroke_width, transform_str));
+					} else if (el.type == ElementType.CIRCLE) {
+						double cx = el.x + el.width / 2.0;
+						double cy = el.y + el.height / 2.0;
+						double rx = el.width / 2.0;
+						double ry = el.height / 2.0;
+						data_stream.put_string ("      <ellipse id=\"%s\" cx=\"%g\" cy=\"%g\" rx=\"%g\" ry=\"%g\" ".printf (element_id, cx, cy, rx, ry));
+						data_stream.put_string ("fill=\"%s\" fill-opacity=\"%.3f\" ".printf (fill_value, fill_opacity));
+						data_stream.put_string ("stroke=\"%s\" stroke-opacity=\"%.3f\" stroke-width=\"%g\"%s/>\n".printf (stroke_value, stroke_opacity, el.stroke_width, transform_str));
+					} else if (el.type == ElementType.LINE) {
+						double x2 = el.x + el.width;
+						double y2 = el.y + el.height;
+
+						if (el.use_gradient) {
+							string line_grad_id = "gradient-%d".printf (gradient_id - 1);
+							data_stream.put_string ("      <line id=\"%s\" x1=\"%g\" y1=\"%g\" x2=\"%g\" y2=\"%g\" ".printf (element_id, el.x, el.y, x2, y2));
+							data_stream.put_string ("stroke=\"url(#%s)\" stroke-opacity=\"1.0\" stroke-width=\"%g\"%s/>\n".printf (line_grad_id, el.stroke_width, transform_str));
+						} else {
+							data_stream.put_string ("      <line id=\"%s\" x1=\"%g\" y1=\"%g\" x2=\"%g\" y2=\"%g\" ".printf (element_id, el.x, el.y, x2, y2));
+							data_stream.put_string ("stroke=\"%s\" stroke-opacity=\"%.3f\" stroke-width=\"%g\"%s/>\n".printf (stroke_value, stroke_opacity, el.stroke_width, transform_str));
+						}
+					} else if (el.type == ElementType.SVG) {
+						data_stream.put_string ("      <g id=\"%s\"%s>\n".printf (element_id, transform_str));
+						data_stream.put_string ("        <svg x=\"%g\" y=\"%g\" width=\"%g\" height=\"%g\">\n".printf (el.x, el.y, el.width, el.height));
+						data_stream.put_string ("          %s\n".printf (el.svg_data));
+						data_stream.put_string ("        </svg>\n");
+						data_stream.put_string ("      </g>\n");
+					}
+				}
+				data_stream.put_string ("    </g>\n");
+			}
+
+			data_stream.put_string ("  </g>\n");
+			data_stream.put_string ("</svg>\n");
+
+			data_stream.close ();
+		} catch (GLib.Error e) {
+			GLib.warning ("Failed to export SVG: %s", e.message);
+		}
 	}
 }

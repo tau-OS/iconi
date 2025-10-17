@@ -1,7 +1,8 @@
 public enum ElementType {
     RECTANGLE,
     CIRCLE,
-    LINE
+    LINE,
+    SVG
 }
 
 public class IconElement : GLib.Object {
@@ -13,12 +14,13 @@ public class IconElement : GLib.Object {
     public Gdk.RGBA fill;
     public Gdk.RGBA stroke;
     public float stroke_width;
-    public string blend_mode;
     public bool use_gradient;
     public Gdk.RGBA gradient_secondary;
     public double gradient_angle;
     public double line_angle;
     public float line_length;
+    public double element_angle;
+    public string svg_data;
 
     public IconElement (ElementType t) {
         type = t;
@@ -26,27 +28,46 @@ public class IconElement : GLib.Object {
         y = 12.0f;
         width = 40.0f;
         height = 40.0f;
-        stroke_width = 0.0f;
-        blend_mode = "normal";
+        stroke_width = 1.0f;
         use_gradient = false;
         gradient_angle = 45.0;
         line_angle = 45.0;
         line_length = 40.0f;
+        element_angle = 0.0;
+        svg_data = "";
         Gdk.RGBA tmp = { 0 };
-        tmp.parse ("#ffffff"); fill = tmp;
-        tmp.parse ("#000000"); stroke = tmp;
+        tmp.parse ("#FFFFFF"); fill = tmp;
+        tmp.parse ("#FFFFFF"); stroke = tmp;
         if (t == ElementType.LINE) {
-            tmp.parse ("#888888"); gradient_secondary = tmp;
+            tmp.parse ("#000000"); gradient_secondary = tmp;
         } else {
             tmp.parse ("#888888"); gradient_secondary = tmp;
         }
     }
 }
 
-public class IconModel : GLib.Object {
+public class ElementGroup : GLib.Object {
+    public string name;
     public GLib.ListStore elements;
-    public int selected_index = -1;
+    public string blend_mode;
+    public bool use_raised_effect;
+    public bool use_shadow;
+
+    public ElementGroup (string group_name) {
+        name = group_name;
+        elements = new GLib.ListStore (typeof (IconElement));
+        blend_mode = "normal";
+        use_raised_effect = false;
+        use_shadow = false;
+    }
+}
+
+public class IconModel : GLib.Object {
+    public GLib.ListStore groups;
+    public int selected_group_index = -1;
+    public int selected_element_index = -1;
     public bool background_selected = false;
+    public bool group_selected = false;
     public bool reorder_mode = false;
 
     public string name = "Icon Name";
@@ -62,10 +83,10 @@ public class IconModel : GLib.Object {
     public float zoom = 1.0f;
 
     public IconModel () {
-        elements = new GLib.ListStore (typeof (IconElement));
+        groups = new GLib.ListStore (typeof (ElementGroup));
         Gdk.RGBA tmp = { 0 };
-        tmp.parse ("#0080FF"); background = tmp;
-        tmp.parse ("#00C0FF"); gradient_secondary = tmp;
+        tmp.parse ("#FFFFFF"); background = tmp;
+        tmp.parse ("#CFCFD5"); gradient_secondary = tmp;
         tmp.parse ("#888888"); view_background = tmp;
     }
 }
