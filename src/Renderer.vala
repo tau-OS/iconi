@@ -45,7 +45,9 @@ public class IconRenderer : GLib.Object {
             GLib.warning ("Failed to load %s SVG asset: %s", label, load_err.message);
             return null;
         }
-    }    private void draw_rounded_rect_path (Cairo.Context cr, double x, double y, double width, double height, double radius) {
+    }
+
+    private void draw_rounded_rect_path (Cairo.Context cr, double x, double y, double width, double height, double radius) {
         double limited = GLib.Math.fmin (radius, GLib.Math.fmin (width, height) / 2.0);
         double right = x + width;
         double bottom = y + height;

@@ -291,7 +291,7 @@ public class IconMakerWindow : He.ApplicationWindow {
 			float z = IconiUtils.clampf (model.zoom, 0.25f, 4.0f);
 			cr.save ();
 			cr.scale (z, z);
-			renderer.render_icon (cr, SVG_VIEWPORT_SIZE);
+			renderer.render_icon (cr, 109.0f);
 			cr.restore ();
 		});
 
@@ -1030,14 +1030,14 @@ public class IconMakerWindow : He.ApplicationWindow {
 			"Gray"
 		};
 		string[] ramp_hex = {
-			"#E53935",
-			"#FB8C00",
-			"#FDD835",
-			"#43A047",
-			"#1E88E5",
-			"#3949AB",
-			"#8E24AA",
-			"#616161"
+			"#E25480",
+			"#F99E5C",
+			"#FECB49",
+			"#72DA82",
+			"#6AC9FF",
+			"#5A41FF",
+			"#A57BCD",
+			"#BEBEC7"
 		};
 		double[] steps = { -0.75, -0.5, -0.25, 0.0, 0.25, 0.50, 0.75 };
 		int ramp_count = ramp_labels.length;
@@ -1331,7 +1331,7 @@ public class IconMakerWindow : He.ApplicationWindow {
 		double out_size = 128.0;
 		var surface = new Cairo.SvgSurface (filename, out_size, out_size);
 		var cr = new Cairo.Context (surface);
-		renderer.render_icon (cr, 128);
+		renderer.render_icon (cr, 109.0f);
 		cr.show_page ();
 		surface.finish ();
 	}
