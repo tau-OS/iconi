@@ -228,62 +228,152 @@ public class IconRenderer : GLib.Object {
 
             // Apply group-level effects
             if (group.use_raised_effect || group.use_shadow) {
-                cr.save ();
-
-                // Create a composite path of all elements in the group
-                for (int i = 0; i < ne; i++) {
-                    var el = (IconElement) group.elements.get_item ((uint) i);
-                    float ex = cx + el.x;
-                    float ey = cy + el.y;
-                    float ew = el.width;
-                    float eh = el.height;
-
+                // Render external shadow first (if enabled)
+                if (group.use_shadow) {
                     cr.save ();
-                    if (el.element_angle != 0.0) {
-                        double center_x = ex + ew / 2.0;
-                        double center_y = ey + eh / 2.0;
-                        cr.translate (center_x, center_y);
-                        cr.rotate (el.element_angle * (GLib.Math.PI / 180.0));
-                        cr.translate (-center_x, -center_y);
+
+                    // Determine shadow color (chromatic based on background)
+                    double bg_luminance = 0.299 * model.background.red + 0.587 * model.background.green + 0.114 * model.background.blue;
+                    bool use_dark_shadow = bg_luminance > 0.5;
+
+                    for (int i = 0; i < ne; i++) {
+                        var el = (IconElement) group.elements.get_item ((uint) i);
+                        float ex = cx + el.x;
+                        float ey = cy + el.y;
+                        float ew = el.width;
+                        float eh = el.height;
+
+                        cr.save ();
+                        if (el.element_angle != 0.0) {
+                            double center_x = ex + ew / 2.0;
+                            double center_y = ey + eh / 2.0;
+                            cr.translate (center_x, center_y);
+                            cr.rotate (el.element_angle * (GLib.Math.PI / 180.0));
+                            cr.translate (-center_x, -center_y);
+                        }
+
+                        // Offset for drop shadow
+                        cr.translate (0, 2);
+
+                        if (el.type == ElementType.RECTANGLE) {
+                            cr.rectangle (ex, ey, ew, eh);
+                        } else if (el.type == ElementType.CIRCLE) {
+                            double scale_x = ew / 2.0;
+                            double scale_y = eh / 2.0;
+                            cr.save ();
+                            cr.translate (ex + ew / 2.0f, ey + eh / 2.0f);
+                            cr.scale (scale_x, scale_y);
+                            cr.arc (0.0, 0.0, 1.0, 0.0, 2.0 * GLib.Math.PI);
+                            cr.restore ();
+                        } else if (el.type == ElementType.LINE) {
+                            cr.move_to (ex, ey);
+                            cr.line_to (ex + ew, ey + eh);
+                        }
+
+                        if (use_dark_shadow) {
+                            cr.set_source_rgba (0.0, 0.0, 0.0, 0.3);
+                        } else {
+                            cr.set_source_rgba (1.0, 1.0, 1.0, 0.3);
+                        }
+
+                        if (el.type == ElementType.LINE) {
+                            cr.set_line_width (el.stroke_width + 2.0);
+                            cr.stroke ();
+                        } else {
+                            cr.fill ();
+                        }
+
+                        cr.restore ();
                     }
 
-                    if (el.type == ElementType.RECTANGLE) {
-                        cr.rectangle (ex, ey, ew, eh);
-                    } else if (el.type == ElementType.CIRCLE) {
-                        double scale_x = ew / 2.0;
-                        double scale_y = eh / 2.0;
-                        cr.save ();
-                        cr.translate (ex + ew / 2.0f, ey + eh / 2.0f);
-                        cr.scale (scale_x, scale_y);
-                        cr.arc (0.0, 0.0, 1.0, 0.0, 2.0 * GLib.Math.PI);
-                        cr.restore ();
-                    } else if (el.type == ElementType.LINE) {
-                        cr.move_to (ex, ey);
-                        cr.line_to (ex + ew, ey + eh);
-                    }
                     cr.restore ();
                 }
 
-                // Shadow (bottom inner shadow)
-                if (group.use_shadow) {
-                    cr.set_source_rgba (0.0, 0.0, 0.0, 0.2);
-                    cr.set_line_width (2.0);
-                    cr.stroke_preserve ();
-                }
-
-                // Raised effect (top glow)
+                // Render raised effect (inset top glow + bottom shadow)
                 if (group.use_raised_effect) {
                     cr.save ();
-                    cr.translate (0, -2);
-                    cr.set_source_rgba (1.0, 1.0, 1.0, 0.5);
-                    cr.set_line_width (2.0);
-                    cr.stroke ();
-                    cr.restore ();
-                } else {
-                    cr.new_path ();
-                }
 
-                cr.restore ();
+                    for (int i = 0; i < ne; i++) {
+                        var el = (IconElement) group.elements.get_item ((uint) i);
+                        float ex = cx + el.x;
+                        float ey = cy + el.y;
+                        float ew = el.width;
+                        float eh = el.height;
+
+                        cr.save ();
+                        if (el.element_angle != 0.0) {
+                            double center_x = ex + ew / 2.0;
+                            double center_y = ey + eh / 2.0;
+                            cr.translate (center_x, center_y);
+                            cr.rotate (el.element_angle * (GLib.Math.PI / 180.0));
+                            cr.translate (-center_x, -center_y);
+                        }
+
+                        // Clip to element shape
+                        if (el.type == ElementType.RECTANGLE) {
+                            cr.rectangle (ex, ey, ew, eh);
+                        } else if (el.type == ElementType.CIRCLE) {
+                            double scale_x = ew / 2.0;
+                            double scale_y = eh / 2.0;
+                            cr.save ();
+                            cr.translate (ex + ew / 2.0f, ey + eh / 2.0f);
+                            cr.scale (scale_x, scale_y);
+                            cr.arc (0.0, 0.0, 1.0, 0.0, 2.0 * GLib.Math.PI);
+                            cr.restore ();
+                        }
+
+                        if (el.type != ElementType.LINE) {
+                            cr.clip_preserve ();
+                            cr.new_path ();
+
+                            // Top inset glow (white at 20%)
+                            if (el.type == ElementType.RECTANGLE) {
+                                cr.rectangle (ex, ey, ew, 2);
+                            } else if (el.type == ElementType.CIRCLE) {
+                                double scale_x = ew / 2.0;
+                                double scale_y = eh / 2.0;
+                                cr.save ();
+                                cr.translate (ex + ew / 2.0f, ey + eh / 2.0f);
+                                cr.scale (scale_x, scale_y);
+                                cr.arc (0.0, 0.0, 1.0, 0.0, 2.0 * GLib.Math.PI);
+                                cr.restore ();
+                            }
+                            cr.set_source_rgba (1.0, 1.0, 1.0, 0.2);
+                            if (el.type == ElementType.CIRCLE) {
+                                cr.set_line_width (2.0);
+                                cr.stroke ();
+                            } else {
+                                cr.fill ();
+                            }
+
+                            // Bottom inset shadow (black at 50%)
+                            if (el.type == ElementType.RECTANGLE) {
+                                cr.rectangle (ex, ey + eh - 2, ew, 2);
+                            } else if (el.type == ElementType.CIRCLE) {
+                                double scale_x = ew / 2.0;
+                                double scale_y = eh / 2.0;
+                                cr.save ();
+                                cr.translate (ex + ew / 2.0f, ey + eh / 2.0f);
+                                cr.scale (scale_x, scale_y);
+                                cr.arc (0.0, 0.0, 1.0, 0.0, 2.0 * GLib.Math.PI);
+                                cr.restore ();
+                            }
+                            cr.set_source_rgba (0.0, 0.0, 0.0, 0.5);
+                            if (el.type == ElementType.CIRCLE) {
+                                cr.set_line_width (2.0);
+                                cr.stroke ();
+                            } else {
+                                cr.fill ();
+                            }
+
+                            cr.reset_clip ();
+                        }
+
+                        cr.restore ();
+                    }
+
+                    cr.restore ();
+                }
             }
 
             cr.set_operator (Cairo.Operator.OVER);
