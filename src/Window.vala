@@ -76,6 +76,7 @@ public class IconMakerWindow : He.ApplicationWindow {
 		Object (application : app);
 		set_title ("Icon Maker");
 		set_default_size (1240, 800);
+		set_size_request (360, 294);
 		model = new IconModel ();
 		renderer = new IconRenderer (model);
 		setup_wallpaper_settings ();
@@ -1439,7 +1440,7 @@ public class IconMakerWindow : He.ApplicationWindow {
 		updating_properties = true;
 		update_color_button (bg_gradient_end_btn, rgba);
 		updating_properties = previous;
-		if (model.use_gradient && !model.use_wallpaper) {
+		if (model.use_gradient) {
 			canvas.queue_draw ();
 		}
 	}
