@@ -49,10 +49,13 @@ public class IconMakerWindow : He.ApplicationWindow {
 	private Gtk.DropDown group_blend_drop;
 	private Gtk.Switch group_raised_toggle;
 	private Gtk.Switch group_shadow_toggle;
+	private Gtk.DropDown group_shadow_mode_drop;
+	private Gtk.DropDown group_effect_scope_drop;
 
 	private string[] blend_labels = { "Normal", "Multiply", "Screen", "Overlay", "Darken", "Lighten", "Color Dodge", "Color Burn", "Hard Light", "Soft Light", "Difference", "Exclusion", "Hue", "Saturation", "Color", "Luminosity" };
 	private string[] blend_values = { "normal", "multiply", "screen", "overlay", "darken", "lighten", "color-dodge", "color-burn", "hard-light", "soft-light", "difference", "exclusion", "hue", "saturation", "color", "luminosity" };
 	private string[] bg_fill_modes = { "Solid", "Gradient" };
+	private string[] effect_scope_labels = { "Individual", "Combined" };
 
 	private Gtk.Button bg_side_color_btn;
 	private Gtk.Switch bg_side_wall_switch;
@@ -583,6 +586,25 @@ public class IconMakerWindow : He.ApplicationWindow {
 		group_shadow_box.append (group_shadow_toggle);
 		group_props_area.append (group_shadow_box);
 
+		var group_shadow_mode_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		group_shadow_mode_box.add_css_class ("mini-content-block");
+		var group_shadow_mode_label = new Gtk.Label ("Shadow Mode") { xalign = 0.0f, hexpand = true };
+		group_shadow_mode_label.add_css_class ("caption");
+		group_shadow_mode_box.append (group_shadow_mode_label);
+		var shadow_mode_labels = new string[] { "Mono", "Chromatic" };
+		group_shadow_mode_drop = new Gtk.DropDown.from_strings (shadow_mode_labels);
+		group_shadow_mode_box.append (group_shadow_mode_drop);
+		group_props_area.append (group_shadow_mode_box);
+
+		var group_effect_scope_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+		group_effect_scope_box.add_css_class ("mini-content-block");
+		var group_effect_scope_label = new Gtk.Label ("Effect Scope") { xalign = 0.0f, hexpand = true };
+		group_effect_scope_label.add_css_class ("caption");
+		group_effect_scope_box.append (group_effect_scope_label);
+		group_effect_scope_drop = new Gtk.DropDown.from_strings (effect_scope_labels);
+		group_effect_scope_box.append (group_effect_scope_drop);
+		group_props_area.append (group_effect_scope_box);
+
 		// Element properties
 		pos_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
 		pos_box.add_css_class ("mini-content-block");
@@ -760,7 +782,7 @@ public class IconMakerWindow : He.ApplicationWindow {
 					model.group_selected = false;
 					// Calculate which group and element based on flat index
 					// Each group has: 1 header row + N element rows
-					int flat_idx = ridx - 1;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     // subtract background row
+					int flat_idx = ridx - 1;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             // subtract background row
 					int count = 0;
 					bool found = false;
 					for (int g = 0; g < (int) model.groups.get_n_items (); g++) {
@@ -775,7 +797,7 @@ public class IconMakerWindow : He.ApplicationWindow {
 							found = true;
 							break;
 						}
-						count++;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         // group header
+						count++;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         // group header
 						// Check if flat_idx is within this group's elements
 						if (flat_idx < count + ne) {
 							model.selected_group_index = g;
@@ -867,13 +889,13 @@ public class IconMakerWindow : He.ApplicationWindow {
 			}
 			if (model.selected_group_index >= 0 && model.selected_element_index >= 0) {
 				// Calculate flat index with group headers
-				int flat_index = 1;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // background row
+				int flat_index = 1;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // background row
 				for (int grp2 = 0; grp2 < model.selected_group_index; grp2++) {
 					var group = (ElementGroup) model.groups.get_item ((uint) grp2);
-					flat_index++;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     // group header
+					flat_index++;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             // group header
 					flat_index += (int) group.elements.get_n_items ();
 				}
-				flat_index++;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // selected group's header
+				flat_index++;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // selected group's header
 				flat_index += model.selected_element_index;
 				var row2 = listbox.get_row_at_index (flat_index);
 				if (row2 != null)listbox.select_row (row2);
@@ -1117,6 +1139,26 @@ public class IconMakerWindow : He.ApplicationWindow {
 			}
 			return false;
 		});
+		group_shadow_mode_drop.notify.connect ((pspec) => {
+			if (updating_properties)return;
+			if (pspec.name != "selected")return;
+			if (model.selected_group_index < 0)return;
+			var group = (ElementGroup?) model.groups.get_item ((uint) model.selected_group_index);
+			if (group != null) {
+				group.shadow_chromatic = (group_shadow_mode_drop.get_selected () == 1);
+				canvas.queue_draw ();
+			}
+		});
+		group_effect_scope_drop.notify.connect ((pspec) => {
+			if (updating_properties)return;
+			if (pspec.name != "selected")return;
+			if (model.selected_group_index < 0)return;
+			var group = (ElementGroup?) model.groups.get_item ((uint) model.selected_group_index);
+			if (group != null) {
+				group.effect_scope = (group_effect_scope_drop.get_selected () == 1u) ? GroupEffectScope.COMBINED : GroupEffectScope.INDIVIDUAL;
+				canvas.queue_draw ();
+			}
+		});
 		bg_side_wall_switch.state_set.connect ((w, state) => {
 			if (updating_properties)return false;
 			apply_wallpaper_state (state);
@@ -1248,7 +1290,6 @@ public class IconMakerWindow : He.ApplicationWindow {
 				row.set_child (h);
 
 				if (model.reorder_mode) {
-					// Drop target on group header to allow dropping into empty groups
 					var drop_target = new Gtk.DropTarget (typeof (string), Gdk.DragAction.MOVE);
 					drop_target.drop.connect ((dt, val, x, y) => {
 						var drag_data = (string) val;
@@ -1256,10 +1297,8 @@ public class IconMakerWindow : He.ApplicationWindow {
 						if (parts.length == 2) {
 							int src_group = int.parse (parts[0]);
 							int src_elem = int.parse (parts[1]);
-							if (src_group != group_idx) {
-								int target_pos = (int) group.elements.get_n_items ();
-								move_element_between_groups (src_group, src_elem, group_idx, target_pos);
-							}
+							int target_pos = (int) group.elements.get_n_items ();
+							move_element_between_groups (src_group, src_elem, group_idx, target_pos);
 						}
 						return true;
 					});
@@ -1313,9 +1352,7 @@ public class IconMakerWindow : He.ApplicationWindow {
 						if (parts.length == 2) {
 							int src_group = int.parse (parts[0]);
 							int src_elem = int.parse (parts[1]);
-							if (src_group != group_idx) {
-								move_element_between_groups (src_group, src_elem, group_idx, elem_idx);
-							}
+							move_element_between_groups (src_group, src_elem, group_idx, elem_idx);
 						}
 						return true;
 					});
@@ -1338,13 +1375,24 @@ public class IconMakerWindow : He.ApplicationWindow {
 		if (model.background_selected) {
 			var r0 = listbox.get_row_at_index (0);
 			if (r0 != null)listbox.select_row (r0);
+		} else if (model.group_selected && model.selected_group_index >= 0) {
+			// Calculate flat index for group header: 1 (background) + sum of (1 header + elements) for previous groups + 1 header
+			int flat_index = 1;
+			for (int g = 0; g < model.selected_group_index; g++) {
+				var group = (ElementGroup) model.groups.get_item ((uint) g);
+				int ne = (int) group.elements.get_n_items ();
+				flat_index += 1 + ne;                                                                                                                 // group header + elements
+			}
+			flat_index++;                                                                                     // the target group header
+			var r1 = listbox.get_row_at_index (flat_index);
+			if (r1 != null)listbox.select_row (r1);
 		} else if (model.selected_group_index >= 0 && model.selected_element_index >= 0) {
 			// Calculate flat index: 1 (background) + sum of (1 header + elements) for previous groups + 1 header + element index
 			int flat_index = 1;
 			for (int g = 0; g < (int) model.groups.get_n_items (); g++) {
 				var group = (ElementGroup) model.groups.get_item ((uint) g);
 				int ne = (int) group.elements.get_n_items ();
-				flat_index++;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // group header
+				flat_index++;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // group header
 				if (g == model.selected_group_index) {
 					flat_index += model.selected_element_index;
 					break;
@@ -1485,26 +1533,58 @@ public class IconMakerWindow : He.ApplicationWindow {
 
 	private void move_element_between_groups (int src_group_idx, int src_elem_idx, int dest_group_idx, int dest_elem_idx) {
 		if (src_group_idx < 0 || dest_group_idx < 0)return;
-		if (src_elem_idx < 0 || dest_elem_idx < 0)return;
+		if (src_elem_idx < 0)return;
 
 		var src_group = (ElementGroup?) model.groups.get_item ((uint) src_group_idx);
-		var dest_group = (ElementGroup?) model.groups.get_item ((uint) dest_group_idx);
-		if (src_group == null || dest_group == null)return;
+		if (src_group == null)return;
 
-		if (src_elem_idx >= (int) src_group.elements.get_n_items ())return;
+		int src_count = (int) src_group.elements.get_n_items ();
+		if (src_elem_idx >= src_count)return;
+
+		bool same_group = (src_group_idx == dest_group_idx);
+		var dest_group = same_group ? src_group : (ElementGroup?) model.groups.get_item ((uint) dest_group_idx);
+		if (dest_group == null)return;
+
+		if (dest_elem_idx < 0)dest_elem_idx = 0;
 
 		var item = src_group.elements.get_item ((uint) src_elem_idx);
 		if (item == null)return;
 
 		src_group.elements.remove ((uint) src_elem_idx);
-		dest_group.elements.insert ((uint) dest_elem_idx, item);
+
+		if (!same_group) {
+			if (src_group.elements.get_n_items () == 0) {
+				model.groups.remove ((uint) src_group_idx);
+				if (dest_group_idx > src_group_idx)dest_group_idx--;
+				dest_group = (ElementGroup?) model.groups.get_item ((uint) dest_group_idx);
+				if (dest_group == null) {
+					model.selected_group_index = -1;
+					model.selected_element_index = -1;
+					model.background_selected = true;
+					model.group_selected = false;
+					refresh_listbox ();
+					update_properties_visibility ();
+					canvas.queue_draw ();
+					return;
+				}
+			}
+		}
+
+		int dest_count = (int) dest_group.elements.get_n_items ();
+		int adjusted_dest = dest_elem_idx;
+		if (same_group && adjusted_dest > src_elem_idx)adjusted_dest--;
+		if (adjusted_dest > dest_count)adjusted_dest = dest_count;
+		if (adjusted_dest < 0)adjusted_dest = 0;
+
+		dest_group.elements.insert ((uint) adjusted_dest, item);
 
 		model.selected_group_index = dest_group_idx;
-		model.selected_element_index = dest_elem_idx;
+		model.selected_element_index = adjusted_dest;
 		model.background_selected = false;
 		model.group_selected = false;
 
 		refresh_listbox ();
+		update_properties_visibility ();
 		canvas.queue_draw ();
 	}
 
@@ -1825,6 +1905,8 @@ public class IconMakerWindow : He.ApplicationWindow {
 					group_blend_drop.set_selected ((uint) bidx);
 					group_raised_toggle.set_active (group.use_raised_effect);
 					group_shadow_toggle.set_active (group.use_shadow);
+					group_shadow_mode_drop.set_selected (group.shadow_chromatic ? 1u : 0u);
+					group_effect_scope_drop.set_selected (group.effect_scope == GroupEffectScope.COMBINED ? 1u : 0u);
 				}
 			}
 			if (show_el) {

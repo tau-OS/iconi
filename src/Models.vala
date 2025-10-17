@@ -5,6 +5,11 @@ public enum ElementType {
     SVG
 }
 
+public enum GroupEffectScope {
+    INDIVIDUAL,
+    COMBINED
+}
+
 public class IconElement : GLib.Object {
     public ElementType type;
     public float x;
@@ -52,6 +57,8 @@ public class ElementGroup : GLib.Object {
     public string blend_mode;
     public bool use_raised_effect;
     public bool use_shadow;
+    public bool shadow_chromatic;
+    public GroupEffectScope effect_scope;
 
     public ElementGroup (string group_name) {
         name = group_name;
@@ -59,6 +66,8 @@ public class ElementGroup : GLib.Object {
         blend_mode = "normal";
         use_raised_effect = false;
         use_shadow = false;
+        shadow_chromatic = false;
+        effect_scope = GroupEffectScope.INDIVIDUAL;
     }
 }
 
@@ -85,8 +94,8 @@ public class IconModel : GLib.Object {
     public IconModel () {
         groups = new GLib.ListStore (typeof (ElementGroup));
         Gdk.RGBA tmp = { 0 };
-        tmp.parse ("#FFFFFF"); background = tmp;
-        tmp.parse ("#CFCFD5"); gradient_secondary = tmp;
+        tmp.parse ("#44AAFF"); background = tmp;
+        tmp.parse ("#0077DD"); gradient_secondary = tmp;
         tmp.parse ("#888888"); view_background = tmp;
     }
 }
