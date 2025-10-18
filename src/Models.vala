@@ -15,6 +15,12 @@ public enum GridOverlayVariant {
     LIGHT
 }
 
+public enum IconBackgroundVariant {
+    SYSTEM_DARK,
+    SYSTEM_LIGHT,
+    NONE
+}
+
 public class IconElement : GLib.Object {
     public ElementType type;
     public float x;
@@ -107,12 +113,47 @@ public class IconModel : GLib.Object {
     public float zoom = 1.0f;
     public bool show_grid_overlay = false;
     public GridOverlayVariant grid_overlay_variant = GridOverlayVariant.DARK;
+    private IconBackgroundVariant _icon_background_variant = IconBackgroundVariant.NONE;
+    public IconBackgroundVariant icon_background_variant {
+        get {
+            return _icon_background_variant;
+        }
+        set {
+            if (_icon_background_variant == value) {
+                return;
+            }
+            _icon_background_variant = value;
+            apply_background_variant_colors ();
+        }
+    }
 
     public IconModel () {
         groups = new GLib.ListStore (typeof (ElementGroup));
         Gdk.RGBA tmp = { 0 };
-        tmp.parse ("#44AAFF"); background = tmp;
-        tmp.parse ("#0077DD"); gradient_secondary = tmp;
+
         tmp.parse ("#888888"); view_background = tmp;
+        apply_background_variant_colors ();
+    }
+
+    private void apply_background_variant_colors () {
+        Gdk.RGBA bg_color = { 0 };
+        Gdk.RGBA grad_color = { 0 };
+
+        if (_icon_background_variant == IconBackgroundVariant.SYSTEM_LIGHT) {
+            bg_color.parse ("#FAFAFA");
+            grad_color.parse ("#F0F0F0");
+            use_gradient = true;
+        } else if (_icon_background_variant == IconBackgroundVariant.SYSTEM_DARK) {
+            bg_color.parse ("#2d2d2d");
+            grad_color.parse ("#000000");
+            use_gradient = true;
+        } else {
+            bg_color.parse ("#44AAFF");
+            grad_color.parse ("#0077DD");
+            use_gradient = true;
+        }
+
+        background = bg_color;
+        gradient_secondary = grad_color;
     }
 }
