@@ -5,13 +5,14 @@ public class IconMakerWindow : He.ApplicationWindow {
     private const int SVG_VIEWPORT_SIZE = 128;
     private const int SIDEBAR_WIDTH = 313;
 
-    public const int INSPECTOR_WIDTH = 360;
+    public int INSPECTOR_WIDTH = 360;
 
     private Gtk.DrawingArea canvas;
     private Gtk.Box center_box;
     private He.AppBar mappbar;
     private Sidebar sidebar;
     private Inspector inspector;
+    private Gtk.Overlay overlay;
 
     private Gtk.CssProvider? view_bg_css;
     private static GLib.Settings? wallpaper_settings;
@@ -224,6 +225,13 @@ public class IconMakerWindow : He.ApplicationWindow {
                     string path = file.get_path ();
                     if (path != null) {
                         IconiUtils.export_icon_to_svg (model, path);
+                        var toast = new He.Toast ("");
+                        toast.set_halign (Gtk.Align.CENTER);
+                        toast.set_valign (Gtk.Align.END);
+                        toast.set_margin_bottom (18);
+                        toast.label = "Icon exported successfully";
+                        overlay.add_overlay (toast);
+                        toast.show ();
                     }
                 }
             } catch (Error e) {
@@ -454,7 +462,7 @@ public class IconMakerWindow : He.ApplicationWindow {
 
         inspector = new Inspector (this, model, canvas, mappbar);
 
-        var overlay = new Gtk.Overlay ();
+        overlay = new Gtk.Overlay ();
         overlay.set_hexpand (true);
         overlay.set_vexpand (true);
         overlay.set_halign (Gtk.Align.FILL);
