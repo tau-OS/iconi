@@ -231,7 +231,7 @@ public class IconMakerWindow : He.ApplicationWindow {
                         toast.set_margin_bottom (18);
                         toast.label = "Icon exported successfully";
                         overlay.add_overlay (toast);
-                        toast.show ();
+                        toast.send_notification ();
                     } else {
                         var toast = new He.Toast ("");
                         toast.set_halign (Gtk.Align.CENTER);
@@ -239,7 +239,7 @@ public class IconMakerWindow : He.ApplicationWindow {
                         toast.set_margin_bottom (18);
                         toast.label = "Operation cancelled";
                         overlay.add_overlay (toast);
-                        toast.show ();
+                        toast.send_notification ();
                     }
                 }
             } catch (Error e) {
