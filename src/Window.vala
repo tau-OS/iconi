@@ -154,6 +154,198 @@ public class IconMakerWindow : He.ApplicationWindow {
 		canvas.queue_draw ();
 	}
 
+	private GLib.Regex? compile_regex (string pattern, GLib.RegexCompileFlags flags = (GLib.RegexCompileFlags) 0) {
+		try {
+			return new GLib.Regex (pattern, flags, 0);
+		} catch (GLib.Error regex_err) {
+			GLib.warning ("Failed to compile regex '%s': %s", pattern, regex_err.message);
+			return null;
+		}
+	}
+
+	private bool try_extract_svg_color (string svg, string attribute, out Gdk.RGBA color) {
+		color = { 0 };
+		string attr_pattern = "(?i)" + GLib.Regex.escape_string (attribute) + "\\s*=\\s\"([^\"]+)\"";
+		var attr_regex = compile_regex (attr_pattern, GLib.RegexCompileFlags.MULTILINE);
+		if (attr_regex != null) {
+			GLib.MatchInfo match;
+			if (attr_regex.match (svg, 0, out match)) {
+				string raw = match.fetch (1);
+				if (parse_svg_paint_value (raw, out color)) {
+					apply_svg_opacity_from_source (svg, attribute, ref color);
+					return true;
+				}
+			}
+		}
+		string style_pattern = "(?i)" + GLib.Regex.escape_string (attribute) + "\\s*:\\s*([^;\"']+)";
+		var style_regex = compile_regex (style_pattern, GLib.RegexCompileFlags.MULTILINE);
+		if (style_regex != null) {
+			GLib.MatchInfo match;
+			if (style_regex.match (svg, 0, out match)) {
+				string raw = match.fetch (1);
+				if (parse_svg_paint_value (raw, out color)) {
+					apply_svg_opacity_from_source (svg, attribute, ref color);
+					return true;
+				}
+			}
+		}
+		color = { 0 };
+		return false;
+	}
+
+	private void apply_svg_opacity_from_source (string svg, string attribute, ref Gdk.RGBA color) {
+		double opacity;
+		if (try_extract_svg_numeric (svg, attribute + "-opacity", out opacity)) {
+			double combined = IconiUtils.clamp01 (opacity) * IconiUtils.clamp01 (color.alpha);
+			color.alpha = (float) combined;
+		}
+	}
+
+	private bool parse_svg_paint_value (string value, out Gdk.RGBA color) {
+		color = { 0 };
+		string trimmed = value.strip ();
+		if (trimmed.length == 0)return false;
+		string lowered = trimmed.down ();
+		if (lowered == "none") {
+			color = { 0 };
+			color.alpha = 0.0f;
+			return true;
+		}
+		Gdk.RGBA parsed = { 0 };
+		if (parsed.parse (trimmed)) {
+			color = parsed;
+			return true;
+		}
+		return false;
+	}
+
+	private bool try_extract_svg_numeric (string svg, string attribute, out double value) {
+		value = 0.0;
+		string attr_pattern = "(?i)" + GLib.Regex.escape_string (attribute) + "\\s*=\\s\"([^\"]+)\"";
+		var attr_regex = compile_regex (attr_pattern, GLib.RegexCompileFlags.MULTILINE);
+		if (attr_regex != null) {
+			GLib.MatchInfo match;
+			if (attr_regex.match (svg, 0, out match)) {
+				string raw = match.fetch (1);
+				if (parse_svg_numeric_value (raw, out value))return true;
+			}
+		}
+		string style_pattern = "(?i)" + GLib.Regex.escape_string (attribute) + "\\s*:\\s*([^;\"']+)";
+		var style_regex = compile_regex (style_pattern, GLib.RegexCompileFlags.MULTILINE);
+		if (style_regex != null) {
+			GLib.MatchInfo match;
+			if (style_regex.match (svg, 0, out match)) {
+				string raw = match.fetch (1);
+				if (parse_svg_numeric_value (raw, out value))return true;
+			}
+		}
+		return false;
+	}
+
+	private bool parse_svg_numeric_value (string source, out double value) {
+		value = 0.0;
+		var number_regex = compile_regex ("[+-]?[0-9]*\\.?[0-9]+", (GLib.RegexCompileFlags) 0);
+		if (number_regex == null)return false;
+		GLib.MatchInfo match;
+		if (!number_regex.match (source, 0, out match))return false;
+		string numeric = match.fetch (0);
+		numeric = numeric.replace (",", ".");
+		value = double.parse (numeric);
+		return true;
+	}
+
+	private string set_svg_paint (string svg, string attribute, Gdk.RGBA color) {
+		double alpha = IconiUtils.clamp01 (color.alpha);
+		if (alpha <= 0.0005) {
+			string updated = set_svg_attribute_or_style (svg, attribute, "none");
+			return set_svg_attribute_or_style (updated, attribute + "-opacity", "0");
+		}
+		string hex = IconiUtils.rgba_to_hex (color);
+		string updated_svg = set_svg_attribute_or_style (svg, attribute, hex);
+		string opacity_value = format_decimal_string (alpha);
+		return set_svg_attribute_or_style (updated_svg, attribute + "-opacity", opacity_value);
+	}
+
+	private string set_svg_numeric (string svg, string attribute, double value) {
+		string formatted = format_decimal_string_unbounded (value);
+		return set_svg_attribute_or_style (svg, attribute, formatted);
+	}
+
+	private string set_svg_attribute_or_style (string svg, string attribute, string value) {
+		string attr_pattern = "(?i)" + GLib.Regex.escape_string (attribute) + "\\s*=\\s\"([^\"]*)\"";
+		var attr_regex = compile_regex (attr_pattern, GLib.RegexCompileFlags.MULTILINE);
+		try {
+			if (attr_regex != null && attr_regex.match (svg, 0)) {
+				return attr_regex.replace (svg, -1, 0, "%s=\"%s\"".printf (attribute, value));
+			}
+		} catch (GLib.Error replace_err) {
+			GLib.warning ("Failed to update SVG attribute %s: %s", attribute, replace_err.message);
+		}
+		string style_pattern = "(?i)" + GLib.Regex.escape_string (attribute) + "\\s*:\\s*[^;\"']+";
+		var style_regex = compile_regex (style_pattern, GLib.RegexCompileFlags.MULTILINE);
+		try {
+			if (style_regex != null && style_regex.match (svg, 0)) {
+				return style_regex.replace (svg, -1, 0, "%s:%s".printf (attribute, value));
+			}
+		} catch (GLib.Error style_err) {
+			GLib.warning ("Failed to update SVG style %s: %s", attribute, style_err.message);
+		}
+		return inject_svg_attribute (svg, attribute, value);
+	}
+
+	private string inject_svg_attribute (string svg, string attribute, string value) {
+		int svg_tag = svg.index_of ("<svg");
+		if (svg_tag < 0)return svg;
+		int insert_at = svg.index_of (">", svg_tag);
+		if (insert_at < 0)return svg;
+		string insertion = " %s=\"%s\"".printf (attribute, value);
+		return svg.substring (0, insert_at) + insertion + svg.substring (insert_at);
+	}
+
+	private string format_decimal_string (double value) {
+		double clamped = IconiUtils.clamp01 (value);
+		double scaled = GLib.Math.floor (clamped * 1000.0 + 0.5);
+		int scaled_int = (int) scaled;
+		int integer_part = scaled_int / 1000;
+		int fractional_part = scaled_int % 1000;
+		string raw = "%d.%03d".printf (integer_part, fractional_part);
+		return trim_decimal_suffix (raw);
+	}
+
+	private string format_decimal_string_unbounded (double value) {
+		double scaled = GLib.Math.floor (value * 1000.0 + 0.5);
+		int scaled_int = (int) scaled;
+		int integer_part = scaled_int / 1000;
+		int fractional_part = scaled_int % 1000;
+		string raw = "%d.%03d".printf (integer_part, fractional_part);
+		return trim_decimal_suffix (raw);
+	}
+
+	private string trim_decimal_suffix (string raw) {
+		int idx = raw.length - 1;
+		while (idx > 0 && raw[idx] == '0') {
+			idx--;
+		}
+		if (idx > 0 && raw[idx] == '.')idx--;
+		return raw.substring (0, idx + 1);
+	}
+
+	private void apply_svg_fill_to_element (IconElement el) {
+		if (el.type != ElementType.SVG)return;
+		el.svg_data = set_svg_paint (el.svg_data, "fill", el.fill);
+	}
+
+	private void apply_svg_stroke_to_element (IconElement el) {
+		if (el.type != ElementType.SVG)return;
+		el.svg_data = set_svg_paint (el.svg_data, "stroke", el.stroke);
+		el.svg_data = set_svg_numeric (el.svg_data, "stroke-width", el.stroke_width);
+	}
+
+	private void apply_svg_stroke_width_to_element (IconElement el) {
+		if (el.type != ElementType.SVG)return;
+		el.svg_data = set_svg_numeric (el.svg_data, "stroke-width", el.stroke_width);
+	}
+
 	private void load_svg_file (GLib.File file) {
 		try {
 			uint8[] contents;
@@ -193,6 +385,19 @@ public class IconMakerWindow : He.ApplicationWindow {
 			e.height = (float) clamped_height;
 			e.x = (float) start_x;
 			e.y = (float) start_y;
+			Gdk.RGBA svg_fill;
+			if (try_extract_svg_color (svg_data, "fill", out svg_fill)) {
+				e.fill = svg_fill;
+				e.gradient_secondary = svg_fill;
+			}
+			Gdk.RGBA svg_stroke;
+			if (try_extract_svg_color (svg_data, "stroke", out svg_stroke)) {
+				e.stroke = svg_stroke;
+			}
+			double stroke_width;
+			if (try_extract_svg_numeric (svg_data, "stroke-width", out stroke_width)) {
+				e.stroke_width = (float) stroke_width;
+			}
 			add_element_in_new_group (e);
 		} catch (Error err) {
 			warning ("Failed to load SVG: %s", err.message);
@@ -981,7 +1186,7 @@ public class IconMakerWindow : He.ApplicationWindow {
 					model.group_selected = false;
 					// Calculate which group and element based on flat index
 					// Each group has: 1 header row + N element rows
-					int flat_idx = ridx - 1;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             // subtract background row
+					int flat_idx = ridx - 1;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         // subtract background row
 					int count = 0;
 					bool found = false;
 					for (int g = 0; g < (int) model.groups.get_n_items (); g++) {
@@ -996,7 +1201,7 @@ public class IconMakerWindow : He.ApplicationWindow {
 							found = true;
 							break;
 						}
-						count++;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         // group header
+						count++;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // group header
 						// Check if flat_idx is within this group's elements
 						if (flat_idx < count + ne) {
 							model.selected_group_index = g;
@@ -1092,13 +1297,13 @@ public class IconMakerWindow : He.ApplicationWindow {
 			}
 			if (model.selected_group_index >= 0 && model.selected_element_index >= 0) {
 				// Calculate flat index with group headers
-				int flat_index = 1;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // background row
+				int flat_index = 1;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // background row
 				for (int grp2 = 0; grp2 < model.selected_group_index; grp2++) {
 					var group = (ElementGroup) model.groups.get_item ((uint) grp2);
-					flat_index++;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             // group header
+					flat_index++;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         // group header
 					flat_index += (int) group.elements.get_n_items ();
 				}
-				flat_index++;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // selected group's header
+				flat_index++;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // selected group's header
 				flat_index += model.selected_element_index;
 				var row2 = listbox.get_row_at_index (flat_index);
 				if (row2 != null)listbox.select_row (row2);
@@ -1147,6 +1352,7 @@ public class IconMakerWindow : He.ApplicationWindow {
 			var el = get_selected_element ();
 			if (el == null)return;
 			el.stroke_width = (float) stroke_width_spin.get_value ();
+			apply_svg_stroke_width_to_element (el);
 			canvas.queue_draw ();
 		});
 
@@ -1240,6 +1446,7 @@ public class IconMakerWindow : He.ApplicationWindow {
 				var grad = el.gradient_secondary;
 				grad.alpha = new_color.alpha;
 				el.gradient_secondary = grad;
+				apply_svg_fill_to_element (el);
 				update_color_button (fill_btn, new_color);
 				canvas.queue_draw ();
 			});
@@ -1258,6 +1465,7 @@ public class IconMakerWindow : He.ApplicationWindow {
 					grad.alpha = new_color.alpha;
 					el.gradient_secondary = grad;
 				}
+				apply_svg_stroke_to_element (el);
 				update_color_button (stroke_btn, new_color);
 				canvas.queue_draw ();
 			});
@@ -1311,6 +1519,7 @@ public class IconMakerWindow : He.ApplicationWindow {
 			var grad = el.gradient_secondary;
 			grad.alpha = rgba.alpha;
 			el.gradient_secondary = grad;
+			apply_svg_fill_to_element (el);
 			canvas.queue_draw ();
 		});
 		stroke_opacity_spin.value_changed.connect (() => {
@@ -1327,6 +1536,7 @@ public class IconMakerWindow : He.ApplicationWindow {
 				grad.alpha = rgba.alpha;
 				el.gradient_secondary = grad;
 			}
+			apply_svg_stroke_to_element (el);
 			canvas.queue_draw ();
 		});
 
@@ -1671,9 +1881,9 @@ public class IconMakerWindow : He.ApplicationWindow {
 			for (int g = 0; g < model.selected_group_index; g++) {
 				var group = (ElementGroup) model.groups.get_item ((uint) g);
 				int ne = (int) group.elements.get_n_items ();
-				flat_index += 1 + ne;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // group header + elements
+				flat_index += 1 + ne;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // group header + elements
 			}
-			flat_index++;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     // the target group header
+			flat_index++;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         // the target group header
 			var r1 = listbox.get_row_at_index (flat_index);
 			if (r1 != null)listbox.select_row (r1);
 		} else if (model.selected_group_index >= 0 && model.selected_element_index >= 0) {
@@ -1682,7 +1892,7 @@ public class IconMakerWindow : He.ApplicationWindow {
 			for (int g = 0; g < (int) model.groups.get_n_items (); g++) {
 				var group = (ElementGroup) model.groups.get_item ((uint) g);
 				int ne = (int) group.elements.get_n_items ();
-				flat_index++;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // group header
+				flat_index++;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // group header
 				if (g == model.selected_group_index) {
 					flat_index += model.selected_element_index;
 					break;
@@ -2514,7 +2724,7 @@ public class IconMakerWindow : He.ApplicationWindow {
 			case 0 : target = 0.0; break;
 			case 1 : target = (canvas_size - width) / 2.0; break;
 			case 2 : target = canvas_size - width; break;
-			default: target = 0.0; break;
+				default : target = 0.0; break;
 			}
 			target = GLib.Math.fmax (0.0, GLib.Math.fmin (target, max_target));
 			el.x = IconiUtils.clampf ((float) target, 0.0f, (float) canvas_size);
