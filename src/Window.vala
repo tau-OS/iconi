@@ -3,6 +3,13 @@ public delegate void ColorPickerCallback (Gdk.RGBA color);
 public class IconMakerWindow : He.ApplicationWindow {
 	private IconModel model;
 	private IconRenderer renderer;
+	private const string ICON_ALIGN_TOP = "align-top-symbolic";
+	private const string ICON_ALIGN_LEFT = "align-left-symbolic";
+	private const string ICON_ALIGN_CENTER = "align-center-symbolic";
+	private const string ICON_ALIGN_RIGHT = "align-right-symbolic";
+	private const string ICON_ALIGN_BOTTOM = "align-bottom-symbolic";
+	private const string ICON_LOCKED = "lock-closed-symbolic";
+	private const string ICON_UNLOCKED = "lock-open-symbolic";
 
 	// UI fields
 	private Gtk.ListBox listbox;
@@ -28,6 +35,7 @@ public class IconMakerWindow : He.ApplicationWindow {
 	private Gtk.Entry corner_radius_br_entry;
 	private Gtk.Entry corner_radius_bl_entry;
 	private Gtk.ToggleButton corner_radius_lock_toggle;
+	private Gtk.Image corner_radius_lock_picture;
 	private Gtk.Box align_box;
 	private Gtk.Grid align_grid;
 	private Gtk.Button align_left_btn;
@@ -682,9 +690,13 @@ public class IconMakerWindow : He.ApplicationWindow {
 		corner_radius_bl_entry = create_corner_entry ();
 		corner_radius_lock_toggle = new Gtk.ToggleButton ();
 		corner_radius_lock_toggle.add_css_class ("flat");
-		corner_radius_lock_toggle.set_icon_name ("object-locked-symbolic");
+		corner_radius_lock_toggle.add_css_class ("circular");
 		corner_radius_lock_toggle.set_focus_on_click (false);
 		corner_radius_lock_toggle.set_tooltip_text ("Lock corner radii");
+		corner_radius_lock_toggle.set_halign (Gtk.Align.CENTER);
+		corner_radius_lock_toggle.set_valign (Gtk.Align.CENTER);
+		corner_radius_lock_picture = create_icon_picture (ICON_LOCKED);
+		corner_radius_lock_toggle.set_child (corner_radius_lock_picture);
 		corner_grid.attach (corner_radius_tl_entry, 0, 0, 1, 1);
 		corner_grid.attach (corner_radius_tr_entry, 2, 0, 1, 1);
 		corner_grid.attach (corner_radius_bl_entry, 0, 2, 1, 1);
@@ -702,18 +714,16 @@ public class IconMakerWindow : He.ApplicationWindow {
 		align_label.add_css_class ("caption");
 		align_box.append (align_label);
 		align_grid = new Gtk.Grid ();
-		align_grid.set_column_spacing (6);
-		align_grid.set_row_spacing (6);
 		align_grid.set_column_homogeneous (true);
 		align_grid.set_row_homogeneous (true);
 		align_grid.set_halign (Gtk.Align.CENTER);
 		align_grid.set_valign (Gtk.Align.CENTER);
 		align_grid.set_hexpand (false);
-		align_left_btn = create_align_icon_button ("object-align-left-symbolic", "Align left");
-		align_center_btn = create_align_icon_button ("object-align-horizontal-center-symbolic", "Align center");
-		align_right_btn = create_align_icon_button ("object-align-right-symbolic", "Align right");
-		align_top_btn = create_align_icon_button ("object-align-top-symbolic", "Align top");
-		align_bottom_btn = create_align_icon_button ("object-align-bottom-symbolic", "Align bottom");
+		align_left_btn = create_align_icon_button (ICON_ALIGN_LEFT, "Align left");
+		align_center_btn = create_align_icon_button (ICON_ALIGN_CENTER, "Align center");
+		align_right_btn = create_align_icon_button (ICON_ALIGN_RIGHT, "Align right");
+		align_top_btn = create_align_icon_button (ICON_ALIGN_TOP, "Align top");
+		align_bottom_btn = create_align_icon_button (ICON_ALIGN_BOTTOM, "Align bottom");
 		align_grid.attach (align_top_btn, 1, 0, 1, 1);
 		align_grid.attach (align_left_btn, 0, 1, 1, 1);
 		align_grid.attach (align_center_btn, 1, 1, 1, 1);
@@ -862,7 +872,7 @@ public class IconMakerWindow : He.ApplicationWindow {
 					model.group_selected = false;
 					// Calculate which group and element based on flat index
 					// Each group has: 1 header row + N element rows
-					int flat_idx = ridx - 1;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         // subtract background row
+					int flat_idx = ridx - 1;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         // subtract background row
 					int count = 0;
 					bool found = false;
 					for (int g = 0; g < (int) model.groups.get_n_items (); g++) {
@@ -877,7 +887,7 @@ public class IconMakerWindow : He.ApplicationWindow {
 							found = true;
 							break;
 						}
-						count++;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // group header
+						count++;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // group header
 						// Check if flat_idx is within this group's elements
 						if (flat_idx < count + ne) {
 							model.selected_group_index = g;
@@ -969,13 +979,13 @@ public class IconMakerWindow : He.ApplicationWindow {
 			}
 			if (model.selected_group_index >= 0 && model.selected_element_index >= 0) {
 				// Calculate flat index with group headers
-				int flat_index = 1;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // background row
+				int flat_index = 1;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // background row
 				for (int grp2 = 0; grp2 < model.selected_group_index; grp2++) {
 					var group = (ElementGroup) model.groups.get_item ((uint) grp2);
-					flat_index++;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         // group header
+					flat_index++;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         // group header
 					flat_index += (int) group.elements.get_n_items ();
 				}
-				flat_index++;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // selected group's header
+				flat_index++;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // selected group's header
 				flat_index += model.selected_element_index;
 				var row2 = listbox.get_row_at_index (flat_index);
 				if (row2 != null)listbox.select_row (row2);
@@ -1511,9 +1521,9 @@ public class IconMakerWindow : He.ApplicationWindow {
 			for (int g = 0; g < model.selected_group_index; g++) {
 				var group = (ElementGroup) model.groups.get_item ((uint) g);
 				int ne = (int) group.elements.get_n_items ();
-				flat_index += 1 + ne;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // group header + elements
+				flat_index += 1 + ne;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // group header + elements
 			}
-			flat_index++;                                                                                                                                                                                                                                                                                                                                                                         // the target group header
+			flat_index++;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         // the target group header
 			var r1 = listbox.get_row_at_index (flat_index);
 			if (r1 != null)listbox.select_row (r1);
 		} else if (model.selected_group_index >= 0 && model.selected_element_index >= 0) {
@@ -1522,7 +1532,7 @@ public class IconMakerWindow : He.ApplicationWindow {
 			for (int g = 0; g < (int) model.groups.get_n_items (); g++) {
 				var group = (ElementGroup) model.groups.get_item ((uint) g);
 				int ne = (int) group.elements.get_n_items ();
-				flat_index++;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // group header
+				flat_index++;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // group header
 				if (g == model.selected_group_index) {
 					flat_index += model.selected_element_index;
 					break;
@@ -1750,19 +1760,27 @@ public class IconMakerWindow : He.ApplicationWindow {
 		entry.set_max_length (3);
 		entry.set_input_purpose (Gtk.InputPurpose.NUMBER);
 		entry.set_hexpand (false);
-		entry.set_halign (Gtk.Align.FILL);
-		entry.set_valign (Gtk.Align.FILL);
+		entry.set_halign (Gtk.Align.CENTER);
+		entry.set_valign (Gtk.Align.CENTER);
+		entry.set_alignment (0.5f);
 		entry.set_text ("0");
 		return entry;
 	}
 
-	private Gtk.Button create_align_icon_button (string icon_name, string tooltip) {
+	private Gtk.Image create_icon_picture (string resource_path) {
+		var picture = new Gtk.Image ();
+		picture.icon_name = resource_path;
+		picture.set_pixel_size (24);
+		return picture;
+	}
+
+	private Gtk.Button create_align_icon_button (string resource_path, string tooltip) {
 		var btn = new Gtk.Button ();
 		btn.add_css_class ("flat");
 		btn.add_css_class ("circular");
 		btn.set_focus_on_click (false);
-		var image = new Gtk.Image.from_icon_name (icon_name);
-		btn.set_child (image);
+		var picture = create_icon_picture (resource_path);
+		btn.set_child (picture);
 		btn.set_tooltip_text (tooltip);
 		return btn;
 	}
@@ -1795,9 +1813,11 @@ public class IconMakerWindow : He.ApplicationWindow {
 	private void update_corner_lock_icon () {
 		if (corner_radius_lock_toggle == null)return;
 		bool locked = corner_radius_lock_toggle.get_active ();
-		string icon = locked ? "object-locked-symbolic" : "object-unlocked-symbolic";
-		string tooltip = locked ? "Lock corner radii" : "Unlock corner radii";
-		corner_radius_lock_toggle.set_icon_name (icon);
+		string resource_path = locked ? ICON_LOCKED : ICON_UNLOCKED;
+		string tooltip = locked ? "Unlock corner radii" : "Lock corner radii";
+		if (corner_radius_lock_picture != null) {
+			corner_radius_lock_picture.icon_name = resource_path;
+		}
 		corner_radius_lock_toggle.set_tooltip_text (tooltip);
 	}
 

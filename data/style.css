@@ -98,3 +98,20 @@ dropdown button {
 dropdown .view label {
     color: @window_fg_color;
 }
+
+button.flat:hover {
+    color: @accent_container_fg_color;
+    background: @accent_container_bg_color;
+}
+button.flat:active {
+    color: @accent_container_fg_color;
+    background: @accent_container_bg_color;
+}
+button.flat:hover:active {
+    color: @accent_container_fg_color;
+    background: @accent_container_bg_color;
+}
+button.flat:checked {
+    color: @accent_container_fg_color;
+    background: @accent_container_bg_color;
+}
