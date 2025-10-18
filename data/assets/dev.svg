@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <svg
-   width="128"
-   height="128"
-   viewBox="0 0 128 128"
+   width="80"
+   height="31.998533"
+   viewBox="0 0 80 31.998533"
    fill="none"
    version="1.1"
    id="svg7"
@@ -23,20 +23,22 @@
      inkscape:deskcolor="#d1d1d1"
      inkscape:zoom="8.5390625"
      inkscape:cx="64"
-     inkscape:cy="64"
+     inkscape:cy="35.89387"
      inkscape:window-width="2560"
-     inkscape:window-height="1294"
+     inkscape:window-height="1298"
      inkscape:window-x="0"
      inkscape:window-y="0"
      inkscape:window-maximized="1"
-     inkscape:current-layer="svg7" />
+     inkscape:current-layer="g2" />
   <g
      id="g2"
-     transform="translate(-9.5)">
+     transform="matrix(0.725,0,0,0.7222388,-6.8874996,-48.39)"
+     style="stroke-width:1.38195">
     <g
        filter="url(#filter0_di_1176_431)"
        id="g1"
-       transform="translate(-2.5)">
+       transform="matrix(1.3793103,0,0,1.2306846,-7.0517241,-15.455868)"
+       style="fill:#85d1bf;stroke-width:1.06069">
       <rect
          x="12"
          y="67"
@@ -45,28 +47,28 @@
          rx="8"
          fill="url(#paint0_linear_1176_431)"
          id="rect1"
-         style="fill:url(#paint0_linear_1176_431)"
-         ry="8" />
+         style="fill:#85d1bf;stroke-width:1.06069"
+         ry="9.0004129" />
     </g>
     <g
-       style="mix-blend-mode:hard-light;fill:#000000;fill-opacity:0.395555"
+       style="mix-blend-mode:hard-light;fill:#000000;fill-opacity:0.395555;stroke-width:1"
        id="g3"
-       transform="translate(-2.5)">
+       transform="matrix(1.3793103,0,0,1.3845836,-7.0517224,-28.537283)">
       <path
          d="M 28,92 V 74 h 5.9559 c 0.1448,0 0.4431,0.0042 0.8947,0.0125 0.4515,0.0083 0.8861,0.0375 1.3036,0.0875 1.4826,0.175 2.7394,0.6792 3.7704,1.5125 1.031,0.8333 1.8148,1.8917 2.3516,3.175 0.5368,1.2833 0.8052,2.6875 0.8052,4.2125 0,1.525 -0.2684,2.9292 -0.8052,4.2125 -0.5368,1.2833 -1.3206,2.3417 -2.3516,3.175 -1.031,0.8333 -2.2878,1.3375 -3.7704,1.5125 -0.4175,0.05 -0.8521,0.0792 -1.3036,0.0875 C 34.399,91.9958 34.1007,92 33.9559,92 Z m 3.5275,-3.2 h 2.4284 c 0.23,0 0.541,-0.0042 0.933,-0.0125 0.3919,-0.0167 0.7455,-0.0542 1.0608,-0.1125 0.8009,-0.1583 1.4528,-0.525 1.9555,-1.1 0.5112,-0.575 0.8861,-1.2667 1.1247,-2.075 0.2471,-0.8083 0.3706,-1.6417 0.3706,-2.5 0,-0.9 -0.1278,-1.7542 -0.3834,-2.5625 C 38.77,79.6292 38.3909,78.9458 37.8796,78.3875 37.3684,77.8292 36.7251,77.475 35.9497,77.325 35.6344,77.2583 35.2808,77.2208 34.8889,77.2125 34.4969,77.2042 34.1859,77.2 33.9559,77.2 h -2.4284 z"
          fill="#444444"
          id="path1"
-         style="fill:#000000;fill-opacity:0.395555" />
+         style="fill:#000000;fill-opacity:0.395555;stroke-width:1" />
       <path
          d="M 46.1479,92 V 74 h 12.014 v 3.175 h -8.5376 v 3.85 h 7.0039 V 84.2 h -7.0039 v 4.625 h 8.5376 V 92 Z"
          fill="#444444"
          id="path2"
-         style="fill:#000000;fill-opacity:0.395555" />
+         style="fill:#000000;fill-opacity:0.395555;stroke-width:1" />
       <path
          d="M 65.1874,92 59.5638,74 h 3.5786 L 67.7435,88.8 72.4214,74 H 76 l -5.6236,18 z"
          fill="#444444"
          id="path3"
-         style="fill:#000000;fill-opacity:0.395555" />
+         style="fill:#000000;fill-opacity:0.395555;stroke-width:1" />
     </g>
   </g>
   <defs
@@ -128,7 +130,9 @@
          operator="arithmetic"
          k2="-1"
          k3="1"
-         id="feComposite5" />
+         id="feComposite5"
+         k1="0"
+         k4="0" />
       <feColorMatrix
          type="matrix"
          values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.25 0"
@@ -146,7 +150,7 @@
        x2="52"
        y2="99"
        gradientUnits="userSpaceOnUse"
-       gradientTransform="translate(12)">
+       gradientTransform="matrix(1.3793104,0,0,1.3845836,12,66.999999)">
       <stop
          stop-color="#67FFB6"
          id="stop6" />

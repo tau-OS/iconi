@@ -1,5 +1,6 @@
 public class IconRenderer : GLib.Object {
     private const int SVG_VIEWPORT_SIZE = 128;
+    private const double SAFE_VIEW_SIZE = 109.0;
 
     private IconModel model;
     private Rsvg.Handle? effects_handle;
@@ -12,6 +13,9 @@ public class IconRenderer : GLib.Object {
     private double dev_bounds_width = 128.0;
     private double dev_bounds_height = 128.0;
     private bool dev_bounds_ready = false;
+    private double dev_view_width = SAFE_VIEW_SIZE;
+    private double dev_view_height = SAFE_VIEW_SIZE;
+    private bool dev_view_ready = false;
 
     public IconRenderer (IconModel model) {
         this.model = model;
@@ -34,6 +38,11 @@ public class IconRenderer : GLib.Object {
                     dev_bounds_width = ink_rect.width;
                     dev_bounds_height = ink_rect.height;
                     dev_bounds_ready = true;
+                    if (logical_rect.width > 0.0 && logical_rect.height > 0.0) {
+                        dev_view_width = logical_rect.width;
+                        dev_view_height = logical_rect.height;
+                        dev_view_ready = true;
+                    }
                 }
             } catch (GLib.Error geo_err) {
                 GLib.warning ("Failed to read dev asset geometry: %s", geo_err.message);
@@ -502,11 +511,10 @@ public class IconRenderer : GLib.Object {
     }
 
     public void render_icon (Cairo.Context cr, float preview) {
-        float cx = (128.0f - preview) / 2.0f;
-        float cy = (128.0f - preview) / 2.0f;
-        double cx_d = (double) cx;
-        double cy_d = (double) cy;
-        double preview_d = (double) preview;
+        float canvas_size = SVG_VIEWPORT_SIZE;
+        float cx = (canvas_size - preview) / 2.0f;
+        float cy = (canvas_size - preview) / 2.0f;
+        double preview_ratio = preview / SAFE_VIEW_SIZE;
         double radius = 24.0;
 
         // Background
@@ -514,9 +522,9 @@ public class IconRenderer : GLib.Object {
             double angle_rad = model.gradient_angle * (GLib.Math.PI / 180.0);
             double dx = GLib.Math.cos (angle_rad);
             double dy = GLib.Math.sin (angle_rad);
-            double half = preview_d / 2.0;
-            double center_x = cx_d + half;
-            double center_y = cy_d + half;
+            double half = preview / 2.0;
+            double center_x = cx + half;
+            double center_y = cy + half;
             double x0 = center_x - dx * half;
             double y0 = center_y - dy * half;
             double x1 = center_x + dx * half;
@@ -524,7 +532,7 @@ public class IconRenderer : GLib.Object {
             var pattern = new Cairo.Pattern.linear (x0, y0, x1, y1);
             pattern.add_color_stop_rgba (0.0, model.background.red, model.background.green, model.background.blue, model.background.alpha);
             pattern.add_color_stop_rgba (1.0, model.gradient_secondary.red, model.gradient_secondary.green, model.gradient_secondary.blue, model.gradient_secondary.alpha);
-            draw_rounded_rect_path (cr, cx_d, cy_d, preview_d, preview_d, radius);
+            draw_rounded_rect_path (cr, cx, cy, preview, preview, radius);
             cr.set_source (pattern);
             cr.fill ();
         } else {
@@ -533,13 +541,13 @@ public class IconRenderer : GLib.Object {
             float bb = (float) model.background.blue;
             float ba = (float) model.background.alpha;
             cr.set_source_rgba (br, bg, bb, ba);
-            draw_rounded_rect_path (cr, cx_d, cy_d, preview_d, preview_d, radius);
+            draw_rounded_rect_path (cr, cx, cy, preview, preview, radius);
             cr.fill ();
         }
 
         // Constrain all subsequent drawing to the icon surface
         cr.save ();
-        draw_rounded_rect_path (cr, cx_d, cy_d, preview_d, preview_d, radius);
+        draw_rounded_rect_path (cr, cx, cy, preview, preview, radius);
         cr.clip ();
 
         // Elements
@@ -680,45 +688,89 @@ public class IconRenderer : GLib.Object {
         }
 
         if (model.use_frame_overlay) {
-            render_svg_overlay (cr, frame_handle, cx, cy, preview);
+            render_canvas_overlay (cr, frame_handle, preview_ratio, (double) cx, (double) cy);
         }
         if (model.show_dev_badge) {
-            render_dev_badge (cr, cx, cy, preview);
+            render_dev_badge (cr, preview_ratio);
         }
         if (model.use_raised_effect) {
-            render_svg_overlay (cr, effects_handle, cx, cy, preview);
+            render_canvas_overlay (cr, effects_handle, preview_ratio, (double) cx, (double) cy);
         }
         if (model.show_grid_overlay) {
             Rsvg.Handle? grid_handle = model.grid_overlay_variant == GridOverlayVariant.DARK ? grid_dark_handle : grid_light_handle;
-            render_svg_overlay (cr, grid_handle, cx, cy, preview);
+            render_grid_overlay (cr, grid_handle, cx, cy, preview);
         }
 
         cr.restore ();
     }
 
-    private void render_svg_overlay (Cairo.Context cr, Rsvg.Handle? handle, float cx, float cy, float preview) {
+    private void render_canvas_overlay (Cairo.Context cr, Rsvg.Handle? handle, double scale, double offset_x, double offset_y) {
         if (handle == null)return;
-        double preview_d = preview;
-        double scale = preview_d / SVG_VIEWPORT_SIZE;
         cr.save ();
-        cr.translate ((double) cx, (double) cy);
-        cr.scale (scale, scale);
+        cr.translate (offset_x, offset_y);
+        if (scale != 1.0) {
+            cr.scale (scale, scale);
+        }
         render_svg_document (handle, cr, "overlay");
         cr.restore ();
     }
 
-    private void render_dev_badge (Cairo.Context cr, float cx, float cy, float preview) {
+    private void render_dev_badge (Cairo.Context cr, double preview_ratio) {
         if (dev_handle == null)return;
-        render_svg_overlay (cr, dev_handle, cx, cy, preview);
+        double scale = preview_ratio;
+        double target_x = 6.0;
+        double target_y = 68.0;
+        double logical_x = dev_bounds_ready ? dev_bounds_x : 0.0;
+        double logical_y = dev_bounds_ready ? dev_bounds_y : 0.0;
+
+        cr.save ();
+        if (scale != 1.0) {
+            cr.scale (scale, scale);
+        }
+
+        double inv_scale = (scale != 0.0) ? 1.0 / scale : 1.0;
+        double scaled_target_x = target_x * inv_scale;
+        double scaled_target_y = target_y * inv_scale;
+        cr.translate (scaled_target_x - logical_x, scaled_target_y - logical_y);
+        render_svg_document (dev_handle, cr, "dev overlay");
+        cr.restore ();
+    }
+
+    private void render_grid_overlay (Cairo.Context cr, Rsvg.Handle? handle, float cx, float cy, float preview) {
+        if (handle == null)return;
+        double scale = preview / SAFE_VIEW_SIZE;
+        cr.save ();
+        cr.translate ((double) cx, (double) cy);
+        if (scale != 1.0) {
+            cr.scale (scale, scale);
+        }
+        render_svg_document (handle, cr, "grid overlay");
+        cr.restore ();
     }
 
     private void render_svg_document (Rsvg.Handle handle, Cairo.Context cr, string label) {
+        double width = SAFE_VIEW_SIZE;
+        double height = SAFE_VIEW_SIZE;
+        Rsvg.Rectangle ink_rect;
+        Rsvg.Rectangle logical_rect;
+
+        try {
+            if (handle.get_geometry_for_element (null, out ink_rect, out logical_rect)) {
+                if (logical_rect.width > 0.0 && logical_rect.height > 0.0) {
+                    width = logical_rect.width;
+                    height = logical_rect.height;
+                }
+            }
+        } catch (GLib.Error geom_err) {
+            GLib.debug ("Failed to read %s geometry: %s", label, geom_err.message);
+        }
+
         try {
             Rsvg.Rectangle viewport = {};
             viewport.x = 0.0;
             viewport.y = 0.0;
-            viewport.width = SVG_VIEWPORT_SIZE;
-            viewport.height = SVG_VIEWPORT_SIZE;
+            viewport.width = width;
+            viewport.height = height;
             handle.render_document (cr, viewport);
         } catch (GLib.Error render_err) {
             GLib.warning ("Failed to render %s SVG: %s", label, render_err.message);
