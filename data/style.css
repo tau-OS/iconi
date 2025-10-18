@@ -72,6 +72,21 @@
   background: @surface_container_bg_color;
 }
 
+.overlay-popover contents, .overlay-popover arrow {
+  background: none;
+  box-shadow: none;
+  outline: none;
+  border: none;
+}
+
+.overlay-popover button {
+  background: @accent_container_bg_color;
+  box-shadow: 0 2px 4px 0 alpha(@shadow, 0.32);
+  color: @accent_container_fg_color;
+  min-height: 56px;
+  padding: 4px 16px;
+}
+
 /* overrides for spacing and coloring, upstream when possible */
 .mini-content-block {
   padding: 8px;
