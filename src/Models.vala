@@ -10,6 +10,11 @@ public enum GroupEffectScope {
     COMBINED
 }
 
+public enum GridOverlayVariant {
+    DARK,
+    LIGHT
+}
+
 public class IconElement : GLib.Object {
     public ElementType type;
     public float x;
@@ -38,7 +43,7 @@ public class IconElement : GLib.Object {
         y = 12.0f;
         width = 40.0f;
         height = 40.0f;
-        stroke_width = 1.0f;
+        stroke_width = 0.5f;
         corner_radius_top_left = 0.0f;
         corner_radius_top_right = 0.0f;
         corner_radius_bottom_right = 0.0f;
@@ -100,6 +105,8 @@ public class IconModel : GLib.Object {
     public bool use_frame_overlay = false;
     public bool show_dev_badge = false;
     public float zoom = 1.0f;
+    public bool show_grid_overlay = false;
+    public GridOverlayVariant grid_overlay_variant = GridOverlayVariant.DARK;
 
     public IconModel () {
         groups = new GLib.ListStore (typeof (ElementGroup));

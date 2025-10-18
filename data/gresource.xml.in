@@ -6,6 +6,8 @@
     <file compressed="true" preprocess="xml-stripblanks" alias="effects.svg">assets/effects.svg</file>
     <file compressed="true" preprocess="xml-stripblanks" alias="frame.svg">assets/frame.svg</file>
     <file compressed="true" preprocess="xml-stripblanks" alias="dev.svg">assets/dev.svg</file>
+    <file compressed="true" preprocess="xml-stripblanks" alias="grid-dark.svg">assets/grid-dark.svg</file>
+    <file compressed="true" preprocess="xml-stripblanks" alias="grid-light.svg">assets/grid-light.svg</file>
   </gresource>
   <gresource prefix="/com/fyralabs/Iconi/icons">
     <file compressed="true" preprocess="xml-stripblanks" alias="scalable/actions/align-left-symbolic.svg">icons/align-left-symbolic.svg</file>
@@ -15,5 +17,6 @@
     <file compressed="true" preprocess="xml-stripblanks" alias="scalable/actions/align-bottom-symbolic.svg">icons/align-bottom-symbolic.svg</file>
     <file compressed="true" preprocess="xml-stripblanks" alias="scalable/actions/lock-closed-symbolic.svg">icons/lock-closed-symbolic.svg</file>
     <file compressed="true" preprocess="xml-stripblanks" alias="scalable/actions/lock-open-symbolic.svg">icons/lock-open-symbolic.svg</file>
+    <file compressed="true" preprocess="xml-stripblanks" alias="scalable/actions/grid-dark-symbolic.svg">icons/grid-dark-symbolic.svg</file>
   </gresource>
 </gresources>

@@ -5,6 +5,8 @@ public class IconRenderer : GLib.Object {
     private Rsvg.Handle? effects_handle;
     private Rsvg.Handle? frame_handle;
     private Rsvg.Handle? dev_handle;
+    private Rsvg.Handle? grid_dark_handle;
+    private Rsvg.Handle? grid_light_handle;
     private double dev_bounds_x = 0.0;
     private double dev_bounds_y = 0.0;
     private double dev_bounds_width = 128.0;
@@ -20,6 +22,8 @@ public class IconRenderer : GLib.Object {
         effects_handle = load_svg_handle ("/com/fyralabs/Iconi/effects.svg", "effects");
         frame_handle = load_svg_handle ("/com/fyralabs/Iconi/frame.svg", "frame");
         dev_handle = load_svg_handle ("/com/fyralabs/Iconi/dev.svg", "dev");
+        grid_dark_handle = load_svg_handle ("/com/fyralabs/Iconi/grid-dark.svg", "grid dark");
+        grid_light_handle = load_svg_handle ("/com/fyralabs/Iconi/grid-light.svg", "grid light");
         if (dev_handle != null) {
             Rsvg.Rectangle ink_rect;
             Rsvg.Rectangle logical_rect;
@@ -683,6 +687,10 @@ public class IconRenderer : GLib.Object {
         }
         if (model.use_raised_effect) {
             render_svg_overlay (cr, effects_handle, cx, cy, preview);
+        }
+        if (model.show_grid_overlay) {
+            Rsvg.Handle? grid_handle = model.grid_overlay_variant == GridOverlayVariant.DARK ? grid_dark_handle : grid_light_handle;
+            render_svg_overlay (cr, grid_handle, cx, cy, preview);
         }
 
         cr.restore ();
