@@ -35,6 +35,8 @@ sources = [
   'Models.vala',
   'Utils.vala',
   'Renderer.vala',
+  'Sidebar.vala',
+  'Inspector.vala',
   'Window.vala',
   'Application.vala',
 ]
