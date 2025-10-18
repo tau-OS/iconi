@@ -718,7 +718,7 @@ public class IconRenderer : GLib.Object {
     private void render_dev_badge (Cairo.Context cr, double preview_ratio) {
         if (dev_handle == null)return;
         double scale = preview_ratio;
-        double target_x = 6.0;
+        double target_x = 5.0;
         double target_y = 68.0;
         double logical_x = dev_bounds_ready ? dev_bounds_x : 0.0;
         double logical_y = dev_bounds_ready ? dev_bounds_y : 0.0;
