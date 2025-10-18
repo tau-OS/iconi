@@ -21,6 +21,27 @@ public class IconMakerWindow : He.ApplicationWindow {
 	private Gtk.SpinButton h_entry;
 	private Gtk.Box size_box;
 	private Gtk.Box pos_box;
+	private Gtk.Box corner_box;
+	private Gtk.Grid corner_grid;
+	private Gtk.Entry corner_radius_tl_entry;
+	private Gtk.Entry corner_radius_tr_entry;
+	private Gtk.Entry corner_radius_br_entry;
+	private Gtk.Entry corner_radius_bl_entry;
+	private Gtk.ToggleButton corner_radius_lock_toggle;
+	private Gtk.Box align_box;
+	private Gtk.Grid align_grid;
+	private Gtk.Button align_left_btn;
+	private Gtk.Button align_center_btn;
+	private Gtk.Button align_right_btn;
+	private Gtk.Button align_top_btn;
+	private Gtk.Button align_bottom_btn;
+
+	private enum CornerHandle {
+		TOP_LEFT,
+		TOP_RIGHT,
+		BOTTOM_RIGHT,
+		BOTTOM_LEFT
+	}
 
 	private Gtk.Button fill_btn;
 	private Gtk.Button stroke_btn;
@@ -642,6 +663,65 @@ public class IconMakerWindow : He.ApplicationWindow {
 		size_box.append (height_box);
 		props_area.append (size_box);
 
+		corner_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
+		corner_box.add_css_class ("mini-content-block");
+		var corner_radius_label = new Gtk.Label ("Corner Radius") { xalign = 0.0f, hexpand = true };
+		corner_radius_label.add_css_class ("caption");
+		corner_box.append (corner_radius_label);
+		corner_grid = new Gtk.Grid ();
+		corner_grid.set_column_spacing (6);
+		corner_grid.set_row_spacing (6);
+		corner_grid.set_column_homogeneous (true);
+		corner_grid.set_row_homogeneous (true);
+		corner_grid.set_halign (Gtk.Align.CENTER);
+		corner_grid.set_valign (Gtk.Align.CENTER);
+		corner_grid.set_hexpand (false);
+		corner_radius_tl_entry = create_corner_entry ();
+		corner_radius_tr_entry = create_corner_entry ();
+		corner_radius_br_entry = create_corner_entry ();
+		corner_radius_bl_entry = create_corner_entry ();
+		corner_radius_lock_toggle = new Gtk.ToggleButton ();
+		corner_radius_lock_toggle.add_css_class ("flat");
+		corner_radius_lock_toggle.set_icon_name ("object-locked-symbolic");
+		corner_radius_lock_toggle.set_focus_on_click (false);
+		corner_radius_lock_toggle.set_tooltip_text ("Lock corner radii");
+		corner_grid.attach (corner_radius_tl_entry, 0, 0, 1, 1);
+		corner_grid.attach (corner_radius_tr_entry, 2, 0, 1, 1);
+		corner_grid.attach (corner_radius_bl_entry, 0, 2, 1, 1);
+		corner_grid.attach (corner_radius_br_entry, 2, 2, 1, 1);
+		corner_grid.attach (corner_radius_lock_toggle, 1, 1, 1, 1);
+		corner_radius_lock_toggle.set_active (true);
+		update_corner_lock_icon ();
+		corner_box.append (corner_grid);
+		corner_box.set_visible (false);
+		props_area.append (corner_box);
+
+		align_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
+		align_box.add_css_class ("mini-content-block");
+		var align_label = new Gtk.Label ("Alignment") { xalign = 0.0f, hexpand = true };
+		align_label.add_css_class ("caption");
+		align_box.append (align_label);
+		align_grid = new Gtk.Grid ();
+		align_grid.set_column_spacing (6);
+		align_grid.set_row_spacing (6);
+		align_grid.set_column_homogeneous (true);
+		align_grid.set_row_homogeneous (true);
+		align_grid.set_halign (Gtk.Align.CENTER);
+		align_grid.set_valign (Gtk.Align.CENTER);
+		align_grid.set_hexpand (false);
+		align_left_btn = create_align_icon_button ("object-align-left-symbolic", "Align left");
+		align_center_btn = create_align_icon_button ("object-align-horizontal-center-symbolic", "Align center");
+		align_right_btn = create_align_icon_button ("object-align-right-symbolic", "Align right");
+		align_top_btn = create_align_icon_button ("object-align-top-symbolic", "Align top");
+		align_bottom_btn = create_align_icon_button ("object-align-bottom-symbolic", "Align bottom");
+		align_grid.attach (align_top_btn, 1, 0, 1, 1);
+		align_grid.attach (align_left_btn, 0, 1, 1, 1);
+		align_grid.attach (align_center_btn, 1, 1, 1, 1);
+		align_grid.attach (align_right_btn, 2, 1, 1, 1);
+		align_grid.attach (align_bottom_btn, 1, 2, 1, 1);
+		align_box.append (align_grid);
+		props_area.append (align_box);
+
 		line_controls_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
 		line_controls_box.add_css_class ("mini-content-block");
 		line_length_spin = new Gtk.SpinButton.with_range (1, 155, 1);
@@ -782,7 +862,7 @@ public class IconMakerWindow : He.ApplicationWindow {
 					model.group_selected = false;
 					// Calculate which group and element based on flat index
 					// Each group has: 1 header row + N element rows
-					int flat_idx = ridx - 1;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             // subtract background row
+					int flat_idx = ridx - 1;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         // subtract background row
 					int count = 0;
 					bool found = false;
 					for (int g = 0; g < (int) model.groups.get_n_items (); g++) {
@@ -797,7 +877,7 @@ public class IconMakerWindow : He.ApplicationWindow {
 							found = true;
 							break;
 						}
-						count++;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         // group header
+						count++;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // group header
 						// Check if flat_idx is within this group's elements
 						if (flat_idx < count + ne) {
 							model.selected_group_index = g;
@@ -889,13 +969,13 @@ public class IconMakerWindow : He.ApplicationWindow {
 			}
 			if (model.selected_group_index >= 0 && model.selected_element_index >= 0) {
 				// Calculate flat index with group headers
-				int flat_index = 1;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // background row
+				int flat_index = 1;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // background row
 				for (int grp2 = 0; grp2 < model.selected_group_index; grp2++) {
 					var group = (ElementGroup) model.groups.get_item ((uint) grp2);
-					flat_index++;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             // group header
+					flat_index++;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         // group header
 					flat_index += (int) group.elements.get_n_items ();
 				}
-				flat_index++;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // selected group's header
+				flat_index++;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // selected group's header
 				flat_index += model.selected_element_index;
 				var row2 = listbox.get_row_at_index (flat_index);
 				if (row2 != null)listbox.select_row (row2);
@@ -927,6 +1007,7 @@ public class IconMakerWindow : He.ApplicationWindow {
 			if (el == null)return;
 			if (el.type == ElementType.LINE)return;
 			el.width = (float) GLib.Math.fmin (GLib.Math.fmax ((float) w_entry.get_value (), 1.0f), 109.0f);
+			apply_corner_radius_constraints (el);
 			canvas.queue_draw ();
 		});
 		h_entry.value_changed.connect (() => {
@@ -935,6 +1016,7 @@ public class IconMakerWindow : He.ApplicationWindow {
 			if (el == null)return;
 			if (el.type == ElementType.LINE)return;
 			el.height = (float) GLib.Math.fmin (GLib.Math.fmax ((float) h_entry.get_value (), 1.0f), 109.0f);
+			apply_corner_radius_constraints (el);
 			canvas.queue_draw ();
 		});
 		stroke_width_spin.value_changed.connect (() => {
@@ -972,6 +1054,54 @@ public class IconMakerWindow : He.ApplicationWindow {
 			if (el == null)return;
 			el.element_angle = element_angle_spin.get_value ();
 			canvas.queue_draw ();
+		});
+		corner_radius_tl_entry.changed.connect (() => {
+			handle_corner_radius_entry (CornerHandle.TOP_LEFT, corner_radius_tl_entry);
+		});
+		corner_radius_tr_entry.changed.connect (() => {
+			handle_corner_radius_entry (CornerHandle.TOP_RIGHT, corner_radius_tr_entry);
+		});
+		corner_radius_br_entry.changed.connect (() => {
+			handle_corner_radius_entry (CornerHandle.BOTTOM_RIGHT, corner_radius_br_entry);
+		});
+		corner_radius_bl_entry.changed.connect (() => {
+			handle_corner_radius_entry (CornerHandle.BOTTOM_LEFT, corner_radius_bl_entry);
+		});
+		corner_radius_lock_toggle.toggled.connect (() => {
+			if (updating_properties)return;
+			var el = get_selected_element ();
+			if (el == null)return;
+			if (el.type != ElementType.RECTANGLE)return;
+			bool locked = corner_radius_lock_toggle.get_active ();
+			el.corner_radius_locked = locked;
+			if (locked) {
+				double sum = el.corner_radius_top_left + el.corner_radius_top_right + el.corner_radius_bottom_right + el.corner_radius_bottom_left;
+				double avg = sum / 4.0;
+				float uniform = (float) GLib.Math.round (avg);
+				el.corner_radius_top_left = uniform;
+				el.corner_radius_top_right = uniform;
+				el.corner_radius_bottom_right = uniform;
+				el.corner_radius_bottom_left = uniform;
+			}
+			apply_corner_radius_constraints (el);
+			update_corner_lock_icon ();
+			canvas.queue_draw ();
+		});
+		align_left_btn.clicked.connect (() => {
+			align_selected_element_horizontal (0);
+		});
+		align_center_btn.clicked.connect (() => {
+			align_selected_element_horizontal (1);
+			align_selected_element_vertical (1);
+		});
+		align_right_btn.clicked.connect (() => {
+			align_selected_element_horizontal (2);
+		});
+		align_top_btn.clicked.connect (() => {
+			align_selected_element_vertical (0);
+		});
+		align_bottom_btn.clicked.connect (() => {
+			align_selected_element_vertical (2);
 		});
 
 		fill_btn.clicked.connect (() => {
@@ -1381,9 +1511,9 @@ public class IconMakerWindow : He.ApplicationWindow {
 			for (int g = 0; g < model.selected_group_index; g++) {
 				var group = (ElementGroup) model.groups.get_item ((uint) g);
 				int ne = (int) group.elements.get_n_items ();
-				flat_index += 1 + ne;                                                                                                                 // group header + elements
+				flat_index += 1 + ne;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // group header + elements
 			}
-			flat_index++;                                                                                     // the target group header
+			flat_index++;                                                                                                                                                                                                                                                                                                                                                                         // the target group header
 			var r1 = listbox.get_row_at_index (flat_index);
 			if (r1 != null)listbox.select_row (r1);
 		} else if (model.selected_group_index >= 0 && model.selected_element_index >= 0) {
@@ -1392,7 +1522,7 @@ public class IconMakerWindow : He.ApplicationWindow {
 			for (int g = 0; g < (int) model.groups.get_n_items (); g++) {
 				var group = (ElementGroup) model.groups.get_item ((uint) g);
 				int ne = (int) group.elements.get_n_items ();
-				flat_index++;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // group header
+				flat_index++;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 // group header
 				if (g == model.selected_group_index) {
 					flat_index += model.selected_element_index;
 					break;
@@ -1453,7 +1583,12 @@ public class IconMakerWindow : He.ApplicationWindow {
 
 		if (el.type == ElementType.RECTANGLE) {
 			cr.set_source_rgba (el.fill.red, el.fill.green, el.fill.blue, el.fill.alpha);
-			cr.rectangle (ex, ey, ew, eh);
+			double tl = el.corner_radius_top_left * scale;
+			double tr = el.corner_radius_top_right * scale;
+			double br = el.corner_radius_bottom_right * scale;
+			double bl = el.corner_radius_bottom_left * scale;
+			cr.new_path ();
+			IconiUtils.append_rounded_rect (cr, ex, ey, ew, eh, tl, tr, br, bl);
 			cr.fill_preserve ();
 			cr.set_source_rgba (el.stroke.red, el.stroke.green, el.stroke.blue, el.stroke.alpha);
 			cr.set_line_width (el.stroke_width * scale);
@@ -1498,11 +1633,7 @@ public class IconMakerWindow : He.ApplicationWindow {
 
 	private void draw_rounded_rect_path (Cairo.Context cr, double x, double y, double w, double h, double radius) {
 		cr.new_path ();
-		cr.arc (x + w - radius, y + radius, radius, -GLib.Math.PI / 2.0, 0.0);
-		cr.arc (x + w - radius, y + h - radius, radius, 0.0, GLib.Math.PI / 2.0);
-		cr.arc (x + radius, y + h - radius, radius, GLib.Math.PI / 2.0, GLib.Math.PI);
-		cr.arc (x + radius, y + radius, radius, GLib.Math.PI, 3.0 * GLib.Math.PI / 2.0);
-		cr.close_path ();
+		IconiUtils.append_rounded_rect (cr, x, y, w, h, radius, radius, radius, radius);
 	}
 
 	private void remove_element_at (int group_index, int element_index) {
@@ -1611,6 +1742,63 @@ public class IconMakerWindow : He.ApplicationWindow {
 		btn.set_child (area);
 		btn.set_data ("color_area", area);
 		return btn;
+	}
+
+	private Gtk.Entry create_corner_entry () {
+		var entry = new Gtk.Entry ();
+		entry.set_width_chars (3);
+		entry.set_max_length (3);
+		entry.set_input_purpose (Gtk.InputPurpose.NUMBER);
+		entry.set_hexpand (false);
+		entry.set_halign (Gtk.Align.FILL);
+		entry.set_valign (Gtk.Align.FILL);
+		entry.set_text ("0");
+		return entry;
+	}
+
+	private Gtk.Button create_align_icon_button (string icon_name, string tooltip) {
+		var btn = new Gtk.Button ();
+		btn.add_css_class ("flat");
+		btn.add_css_class ("circular");
+		btn.set_focus_on_click (false);
+		var image = new Gtk.Image.from_icon_name (icon_name);
+		btn.set_child (image);
+		btn.set_tooltip_text (tooltip);
+		return btn;
+	}
+
+	private string sanitize_corner_entry_text (string input) {
+		string digits = "";
+		for (int i = 0; i < input.length; i++) {
+			char c = input[i];
+			if (c >= '0' && c <= '9') {
+				if (digits.length >= 3) {
+					break;
+				}
+				digits += "%c".printf (c);
+			}
+		}
+		return digits;
+	}
+
+	private void set_corner_entry_value (Gtk.Entry entry, double value) {
+		double rounded = GLib.Math.round (value);
+		double clamped = GLib.Math.fmax (0.0, GLib.Math.fmin (rounded, 999.0));
+		string text = "%d".printf ((int) clamped);
+		bool previous = updating_properties;
+		updating_properties = true;
+		entry.set_text (text);
+		entry.set_position (text.length);
+		updating_properties = previous;
+	}
+
+	private void update_corner_lock_icon () {
+		if (corner_radius_lock_toggle == null)return;
+		bool locked = corner_radius_lock_toggle.get_active ();
+		string icon = locked ? "object-locked-symbolic" : "object-unlocked-symbolic";
+		string tooltip = locked ? "Lock corner radii" : "Unlock corner radii";
+		corner_radius_lock_toggle.set_icon_name (icon);
+		corner_radius_lock_toggle.set_tooltip_text (tooltip);
 	}
 
 	private void update_color_button (Gtk.Button btn, Gdk.RGBA color) {
@@ -1926,6 +2114,10 @@ public class IconMakerWindow : He.ApplicationWindow {
 
 				size_box.set_visible (!is_line);
 				line_controls_box.set_visible (is_line);
+				corner_box.set_visible (el.type == ElementType.RECTANGLE);
+				if (el.type == ElementType.RECTANGLE) {
+					apply_corner_radius_constraints (el);
+				}
 
 				if (is_line) {
 					line_length_spin.set_value ((double) el.line_length);
@@ -1968,6 +2160,187 @@ public class IconMakerWindow : He.ApplicationWindow {
 		if (model.use_gradient) {
 			canvas.queue_draw ();
 		}
+	}
+
+	private void update_position_entries (IconElement el) {
+		bool previous = updating_properties;
+		updating_properties = true;
+		x_entry.set_value ((double) el.x);
+		y_entry.set_value ((double) el.y);
+		updating_properties = previous;
+	}
+
+	private void update_corner_radius_controls (IconElement el) {
+		if (corner_radius_tl_entry == null)return;
+		set_corner_entry_value (corner_radius_tl_entry, el.corner_radius_top_left);
+		set_corner_entry_value (corner_radius_tr_entry, el.corner_radius_top_right);
+		set_corner_entry_value (corner_radius_br_entry, el.corner_radius_bottom_right);
+		set_corner_entry_value (corner_radius_bl_entry, el.corner_radius_bottom_left);
+		bool previous = updating_properties;
+		updating_properties = true;
+		corner_radius_lock_toggle.set_active (el.corner_radius_locked);
+		updating_properties = previous;
+		update_corner_lock_icon ();
+	}
+
+	private void handle_corner_radius_entry (CornerHandle handle, Gtk.Entry entry) {
+		if (updating_properties)return;
+		var el = get_selected_element ();
+		if (el == null)return;
+		if (el.type != ElementType.RECTANGLE)return;
+		string raw = entry.get_text ();
+		string sanitized = sanitize_corner_entry_text (raw);
+		if (sanitized != raw) {
+			entry.set_text (sanitized.length > 0 ? sanitized : "0");
+			entry.set_position (entry.get_text ().length);
+			return;
+		}
+		if (sanitized.length == 0) {
+			entry.set_text ("0");
+			entry.set_position (1);
+			return;
+		}
+		int value = 0;
+		value = int.parse (sanitized);
+		if (value > 999) {
+			entry.set_text ("999");
+			entry.set_position (3);
+			return;
+		}
+		float radius = (float) value;
+		if (el.corner_radius_locked) {
+			el.corner_radius_top_left = radius;
+			el.corner_radius_top_right = radius;
+			el.corner_radius_bottom_right = radius;
+			el.corner_radius_bottom_left = radius;
+		} else {
+			switch (handle) {
+			case CornerHandle.TOP_LEFT :
+				el.corner_radius_top_left = radius;
+				break;
+			case CornerHandle.TOP_RIGHT :
+				el.corner_radius_top_right = radius;
+				break;
+			case CornerHandle.BOTTOM_RIGHT :
+				el.corner_radius_bottom_right = radius;
+				break;
+			case CornerHandle.BOTTOM_LEFT :
+				el.corner_radius_bottom_left = radius;
+				break;
+			}
+		}
+		apply_corner_radius_constraints (el);
+		canvas.queue_draw ();
+	}
+
+	private void apply_corner_radius_constraints (IconElement el) {
+		if (el.type != ElementType.RECTANGLE)return;
+		if (el.corner_radius_locked) {
+			double uniform = el.corner_radius_top_left;
+			uniform = GLib.Math.fmax (0.0, GLib.Math.fmin (uniform, 999.0));
+			float uniformf = (float) uniform;
+			el.corner_radius_top_left = uniformf;
+			el.corner_radius_top_right = uniformf;
+			el.corner_radius_bottom_right = uniformf;
+			el.corner_radius_bottom_left = uniformf;
+		}
+
+		double width = el.width;
+		double height = el.height;
+		double tl = el.corner_radius_top_left;
+		double tr = el.corner_radius_top_right;
+		double br = el.corner_radius_bottom_right;
+		double bl = el.corner_radius_bottom_left;
+
+		IconiUtils.normalize_corner_radii (ref tl, ref tr, ref br, ref bl, width, height);
+
+		tl = GLib.Math.fmax (0.0, GLib.Math.fmin (GLib.Math.floor (tl), 999.0));
+		tr = GLib.Math.fmax (0.0, GLib.Math.fmin (GLib.Math.floor (tr), 999.0));
+		br = GLib.Math.fmax (0.0, GLib.Math.fmin (GLib.Math.floor (br), 999.0));
+		bl = GLib.Math.fmax (0.0, GLib.Math.fmin (GLib.Math.floor (bl), 999.0));
+
+		el.corner_radius_top_left = (float) tl;
+		el.corner_radius_top_right = (float) tr;
+		el.corner_radius_bottom_right = (float) br;
+		el.corner_radius_bottom_left = (float) bl;
+
+		update_corner_radius_controls (el);
+	}
+
+	private void align_selected_element_horizontal (int mode) {
+		var el = get_selected_element ();
+		if (el == null)return;
+		double canvas_size = 109.0;
+		if (el.type == ElementType.LINE) {
+			double x1 = el.x;
+			double x2 = el.x + el.width;
+			double min_x = GLib.Math.fmin (x1, x2);
+			double max_x = GLib.Math.fmax (x1, x2);
+			double span = max_x - min_x;
+			double target = 0.0;
+			double max_target = GLib.Math.fmax (canvas_size - span, 0.0);
+			switch (mode) {
+			case 0 : target = 0.0; break;
+			case 1 : target = (canvas_size - span) / 2.0; break;
+			case 2 : target = canvas_size - span; break;
+				default : target = 0.0; break;
+			}
+			target = GLib.Math.fmax (0.0, GLib.Math.fmin (target, max_target));
+			double delta = target - min_x;
+			el.x = (float) (el.x + delta);
+		} else {
+			double width = el.width;
+			double target = 0.0;
+			double max_target = GLib.Math.fmax (canvas_size - width, 0.0);
+			switch (mode) {
+			case 0 : target = 0.0; break;
+			case 1 : target = (canvas_size - width) / 2.0; break;
+			case 2 : target = canvas_size - width; break;
+			default: target = 0.0; break;
+			}
+			target = GLib.Math.fmax (0.0, GLib.Math.fmin (target, max_target));
+			el.x = IconiUtils.clampf ((float) target, 0.0f, (float) canvas_size);
+		}
+		update_position_entries (el);
+		canvas.queue_draw ();
+	}
+
+	private void align_selected_element_vertical (int mode) {
+		var el = get_selected_element ();
+		if (el == null)return;
+		double canvas_size = 109.0;
+		if (el.type == ElementType.LINE) {
+			double y1 = el.y;
+			double y2 = el.y + el.height;
+			double min_y = GLib.Math.fmin (y1, y2);
+			double max_y = GLib.Math.fmax (y1, y2);
+			double span = max_y - min_y;
+			double target = 0.0;
+			double max_target = GLib.Math.fmax (canvas_size - span, 0.0);
+			switch (mode) {
+			case 0: target = 0.0; break;
+			case 1: target = (canvas_size - span) / 2.0; break;
+			case 2: target = canvas_size - span; break;
+			default: target = 0.0; break;
+			}
+			target = GLib.Math.fmax (0.0, GLib.Math.fmin (target, max_target));
+			double delta = target - min_y;
+			el.y = (float) (el.y + delta);
+		} else {
+			double height = el.height;
+			double target = 0.0;
+			double max_target = GLib.Math.fmax (canvas_size - height, 0.0);
+			switch (mode) {
+			case 0: target = 0.0; break;
+			case 1: target = (canvas_size - height) / 2.0; break;
+			case 2: target = canvas_size - height; break;
+			default: target = 0.0; break;
+			}
+			target = GLib.Math.fmax (0.0, GLib.Math.fmin (target, max_target));
+			el.y = IconiUtils.clampf ((float) target, 0.0f, (float) canvas_size);
+		}
+		update_position_entries (el);
+		canvas.queue_draw ();
 	}
 
 	private void refresh_line_deltas (IconElement el) {
@@ -2066,9 +2439,23 @@ public class IconMakerWindow : He.ApplicationWindow {
 					}
 
 					if (el.type == ElementType.RECTANGLE) {
-						data_stream.put_string ("      <rect id=\"%s\" x=\"%g\" y=\"%g\" width=\"%g\" height=\"%g\" ".printf (element_id, el.x, el.y, el.width, el.height));
-						data_stream.put_string ("fill=\"%s\" fill-opacity=\"%.3f\" ".printf (fill_value, fill_opacity));
-						data_stream.put_string ("stroke=\"%s\" stroke-opacity=\"%.3f\" stroke-width=\"%g\"%s/>\n".printf (stroke_value, stroke_opacity, el.stroke_width, transform_str));
+						double tl = el.corner_radius_top_left;
+						double tr = el.corner_radius_top_right;
+						double br = el.corner_radius_bottom_right;
+						double bl = el.corner_radius_bottom_left;
+						IconiUtils.normalize_corner_radii (ref tl, ref tr, ref br, ref bl, el.width, el.height);
+						bool uniform_corners = IconiUtils.corner_radii_are_uniform (tl, tr, br, bl);
+						if (uniform_corners) {
+							double bradius = tl;
+							data_stream.put_string ("      <rect id=\"%s\" x=\"%g\" y=\"%g\" width=\"%g\" height=\"%g\" ".printf (element_id, el.x, el.y, el.width, el.height));
+							data_stream.put_string ("fill=\"%s\" fill-opacity=\"%.3f\" ".printf (fill_value, fill_opacity));
+							data_stream.put_string ("stroke=\"%s\" stroke-opacity=\"%.3f\" stroke-width=\"%g\" rx=\"%g\" ry=\"%g\"%s/>\n".printf (stroke_value, stroke_opacity, el.stroke_width, bradius, bradius, transform_str));
+						} else {
+							string path_data = IconiUtils.rounded_rect_path_d (el.x, el.y, el.width, el.height, tl, tr, br, bl);
+							data_stream.put_string ("      <path id=\"%s\" d=\"%s\" ".printf (element_id, path_data));
+							data_stream.put_string ("fill=\"%s\" fill-opacity=\"%.3f\" ".printf (fill_value, fill_opacity));
+							data_stream.put_string ("stroke=\"%s\" stroke-opacity=\"%.3f\" stroke-width=\"%g\"%s/>\n".printf (stroke_value, stroke_opacity, el.stroke_width, transform_str));
+						}
 					} else if (el.type == ElementType.CIRCLE) {
 						double cx = el.x + el.width / 2.0;
 						double cy = el.y + el.height / 2.0;
@@ -2100,12 +2487,90 @@ public class IconMakerWindow : He.ApplicationWindow {
 				data_stream.put_string ("    </g>\n");
 			}
 
+			double overlay_scale = icon_size / 128.0;
+			if (model.use_raised_effect) {
+				write_overlay_svg (data_stream, "effects", "/com/fyralabs/Iconi/effects.svg", overlay_scale);
+			}
+			if (model.use_frame_overlay) {
+				write_overlay_svg (data_stream, "frame", "/com/fyralabs/Iconi/frame.svg", overlay_scale);
+			}
+			if (model.show_dev_badge) {
+				write_overlay_svg (data_stream, "dev", "/com/fyralabs/Iconi/dev.svg", overlay_scale);
+			}
+
 			data_stream.put_string ("  </g>\n");
 			data_stream.put_string ("</svg>\n");
 
 			data_stream.close ();
 		} catch (GLib.Error e) {
 			GLib.warning ("Failed to export SVG: %s", e.message);
+		}
+	}
+
+	private string ? load_overlay_svg (string resource_path) {
+		try {
+			var stream = GLib.resources_open_stream (resource_path, GLib.ResourceLookupFlags.NONE);
+			var data_stream = new GLib.DataInputStream (stream);
+			var builder = new GLib.StringBuilder ();
+			string? line;
+			bool first = true;
+			while ((line = data_stream.read_line_utf8 (null)) != null) {
+				if (!first) {
+					builder.append ("\n");
+				}
+				builder.append (line);
+				first = false;
+			}
+			data_stream.close ();
+			return builder.str;
+		} catch (GLib.Error e) {
+			GLib.warning ("Failed to load overlay resource %s: %s", resource_path, e.message);
+			return null;
+		}
+	}
+
+	private string normalize_overlay_svg (string raw) {
+		var builder = new GLib.StringBuilder ();
+		var lines = raw.split ("\n");
+		for (int i = 0; i < lines.length; i++) {
+			string line = lines[i];
+			string trimmed = line.strip ();
+			if (trimmed.length == 0 && i == lines.length - 1) {
+				continue;
+			}
+			if (trimmed.has_prefix ("<?xml")) {
+				continue;
+			}
+			builder.append (line);
+			if (i < lines.length - 1) {
+				builder.append ("\n");
+			}
+		}
+		return builder.str;
+	}
+
+	private void write_overlay_svg (GLib.DataOutputStream stream, string overlay_id, string resource_path, double scale) {
+		string? raw = load_overlay_svg (resource_path);
+		if (raw == null || raw.length == 0) {
+			return;
+		}
+		string normalized = normalize_overlay_svg (raw);
+		if (normalized.strip ().length == 0) {
+			return;
+		}
+
+		try {
+			stream.put_string ("    <g id=\"overlay-%s\" transform=\"scale(%g)\">\n".printf (overlay_id, scale));
+			var lines = normalized.split ("\n");
+			for (int i = 0; i < lines.length; i++) {
+				string line = lines[i];
+				stream.put_string ("        ");
+				stream.put_string (line);
+				stream.put_string ("\n");
+			}
+			stream.put_string ("    </g>\n");
+		} catch (GLib.Error e) {
+			GLib.warning ("Failed to write overlay %s: %s", overlay_id, e.message);
 		}
 	}
 }

@@ -19,6 +19,11 @@ public class IconElement : GLib.Object {
     public Gdk.RGBA fill;
     public Gdk.RGBA stroke;
     public float stroke_width;
+    public float corner_radius_top_left;
+    public float corner_radius_top_right;
+    public float corner_radius_bottom_right;
+    public float corner_radius_bottom_left;
+    public bool corner_radius_locked;
     public bool use_gradient;
     public Gdk.RGBA gradient_secondary;
     public double gradient_angle;
@@ -34,6 +39,11 @@ public class IconElement : GLib.Object {
         width = 40.0f;
         height = 40.0f;
         stroke_width = 1.0f;
+        corner_radius_top_left = 0.0f;
+        corner_radius_top_right = 0.0f;
+        corner_radius_bottom_right = 0.0f;
+        corner_radius_bottom_left = 0.0f;
+        corner_radius_locked = true;
         use_gradient = false;
         gradient_angle = 45.0;
         line_angle = 45.0;

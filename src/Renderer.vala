@@ -48,31 +48,24 @@ public class IconRenderer : GLib.Object {
     }
 
     private void draw_rounded_rect_path (Cairo.Context cr, double x, double y, double width, double height, double radius) {
-        double limited = GLib.Math.fmin (radius, GLib.Math.fmin (width, height) / 2.0);
-        double right = x + width;
-        double bottom = y + height;
-        double r = limited;
-        double pi = GLib.Math.PI;
         cr.new_path ();
-        cr.move_to (x + r, y);
-        cr.line_to (right - r, y);
-        cr.arc (right - r, y + r, r, -pi / 2.0, 0.0);
-        cr.line_to (right, bottom - r);
-        cr.arc (right - r, bottom - r, r, 0.0, pi / 2.0);
-        cr.line_to (x + r, bottom);
-        cr.arc (x + r, bottom - r, r, pi / 2.0, pi);
-        cr.line_to (x, y + r);
-        cr.arc (x + r, y + r, r, pi, 3.0 * pi / 2.0);
-        cr.close_path ();
+        IconiUtils.append_rounded_rect (cr, x, y, width, height, radius, radius, radius, radius);
     }
 
     private void append_element_path (Cairo.Context cr, IconElement element, double x, double y, double width, double height, double expand = 0.0, bool reset_path = true) {
         if (reset_path) {
             cr.new_path ();
         }
-        cr.new_sub_path ();
         if (element.type == ElementType.RECTANGLE) {
-            cr.rectangle (x - expand, y - expand, width + expand * 2.0, height + expand * 2.0);
+            double rect_x = x - expand;
+            double rect_y = y - expand;
+            double rect_width = width + expand * 2.0;
+            double rect_height = height + expand * 2.0;
+            double corner_tl = element.corner_radius_top_left + expand;
+            double corner_tr = element.corner_radius_top_right + expand;
+            double corner_br = element.corner_radius_bottom_right + expand;
+            double corner_bl = element.corner_radius_bottom_left + expand;
+            IconiUtils.append_rounded_rect (cr, rect_x, rect_y, rect_width, rect_height, corner_tl, corner_tr, corner_br, corner_bl);
         } else if (element.type == ElementType.CIRCLE) {
             double center_x = x + width / 2.0;
             double center_y = y + height / 2.0;
@@ -80,6 +73,7 @@ public class IconRenderer : GLib.Object {
             double radius_y = (height / 2.0) + expand;
             radius_x = GLib.Math.fmax (radius_x, 0.0);
             radius_y = GLib.Math.fmax (radius_y, 0.0);
+            cr.new_sub_path ();
             cr.save ();
             cr.translate (center_x, center_y);
             cr.scale (radius_x, radius_y);
@@ -290,16 +284,8 @@ public class IconRenderer : GLib.Object {
                     cr.translate (-center_x, -center_y);
                 }
 
-                if (el.type == ElementType.RECTANGLE) {
-                    cr.rectangle (ex - blur_spread, ey - blur_spread, ew + blur_spread * 2.0, eh + blur_spread * 2.0);
-                } else if (el.type == ElementType.CIRCLE) {
-                    double scale_x = (ew + blur_spread * 2.0) / 2.0;
-                    double scale_y = (eh + blur_spread * 2.0) / 2.0;
-                    cr.save ();
-                    cr.translate (ex + ew / 2.0f, ey + eh / 2.0f);
-                    cr.scale (scale_x, scale_y);
-                    cr.arc (0.0, 0.0, 1.0, 0.0, 2.0 * GLib.Math.PI);
-                    cr.restore ();
+                if (el.type == ElementType.RECTANGLE || el.type == ElementType.CIRCLE) {
+                    append_element_path (cr, el, ex, ey, ew, eh, blur_spread);
                 } else if (el.type == ElementType.LINE) {
                     cr.move_to (ex, ey);
                     cr.line_to (ex + ew, ey + eh);
@@ -589,6 +575,7 @@ public class IconRenderer : GLib.Object {
                 }
 
                 if (el.type == ElementType.RECTANGLE) {
+                    append_element_path (cr, el, ex, ey, ew, eh);
                     if (el.use_gradient) {
                         double angle_rad = el.gradient_angle * (GLib.Math.PI / 180.0);
                         double dx = GLib.Math.cos (angle_rad) * (double) ew;
@@ -596,7 +583,6 @@ public class IconRenderer : GLib.Object {
                         var pattern = new Cairo.Pattern.linear (ex, ey, ex + dx, ey + dy);
                         pattern.add_color_stop_rgba (0.0, el.fill.red, el.fill.green, el.fill.blue, el.fill.alpha);
                         pattern.add_color_stop_rgba (1.0, el.gradient_secondary.red, el.gradient_secondary.green, el.gradient_secondary.blue, el.gradient_secondary.alpha);
-                        cr.rectangle (ex, ey, ew, eh);
                         cr.set_source (pattern);
                         cr.fill_preserve ();
                     } else {
@@ -605,7 +591,6 @@ public class IconRenderer : GLib.Object {
                         float fb = (float) el.fill.blue;
                         float fa = (float) el.fill.alpha;
                         cr.set_source_rgba (fr, fg, fb, fa);
-                        cr.rectangle (ex, ey, ew, eh);
                         cr.fill_preserve ();
                     }
                     float sr1 = (float) el.stroke.red;
