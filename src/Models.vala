@@ -148,7 +148,7 @@ public class IconModel : GLib.Object {
             grad_color.parse ("#000000");
             use_gradient = true;
         } else {
-            bg_color.parse ("#44AAFF");
+            bg_color.parse ("#6AC9FF");
             grad_color.parse ("#0077DD");
             use_gradient = true;
         }
