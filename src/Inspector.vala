@@ -142,6 +142,16 @@ public class Inspector : Object {
         updating = prev;
     }
 
+    public void refresh_line_deltas (IconElement el) {
+        if (el.type != ElementType.LINE)return;
+        double angle_rad = el.line_angle * (GLib.Math.PI / 180.0);
+        double length = el.line_length;
+        double dx = GLib.Math.cos (angle_rad) * length;
+        double dy = GLib.Math.sin (angle_rad) * length;
+        el.width = (float) dx;
+        el.height = (float) dy;
+    }
+
     public void update_for_selection () {
         if (updating)return;
         updating = true;
@@ -233,13 +243,13 @@ public class Inspector : Object {
 
     private void build_ui () {
         container = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
-        container.set_size_request (300, -1);
         container.set_vexpand (true);
         container.set_hexpand_set (true);
         container.set_halign (Gtk.Align.END);
         container.add_css_class ("inspector-view");
 
         var inspector_appbar = new He.AppBar ();
+        inspector_appbar.set_size_request (324, -1);
         inspector_appbar.show_left_title_buttons = false;
         inspector_appbar.show_right_title_buttons = true;
         container.append (inspector_appbar);
@@ -249,30 +259,26 @@ public class Inspector : Object {
         prop_header.set_halign (Gtk.Align.START);
         inspector_appbar.viewtitle_widget = prop_header;
 
-        var export_btn = new Gtk.Button ();
-        export_btn.set_icon_name ("document-export-symbolic");
-        inspector_appbar.append (export_btn);
-
         var main_props_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
         main_props_box.set_vexpand (true);
         main_props_box.set_hexpand (true);
 
         props_area = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
-        props_area.set_size_request (300, -1);
+        props_area.set_size_request (324, -1);
         props_area.margin_start = 18;
         props_area.margin_bottom = 18;
         props_area.margin_end = 18;
         main_props_box.append (props_area);
 
         bg_props_area = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
-        bg_props_area.set_size_request (300, -1);
+        bg_props_area.set_size_request (324, -1);
         bg_props_area.margin_start = 18;
         bg_props_area.margin_bottom = 18;
         bg_props_area.margin_end = 18;
         main_props_box.append (bg_props_area);
 
         group_props_area = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
-        group_props_area.set_size_request (300, -1);
+        group_props_area.set_size_request (324, -1);
         group_props_area.margin_start = 18;
         group_props_area.margin_bottom = 18;
         group_props_area.margin_end = 18;
@@ -286,7 +292,7 @@ public class Inspector : Object {
         build_background_section ();
         build_group_section ();
         build_element_section ();
-        build_signals (export_btn);
+        build_signals ();
     }
 
     private void build_background_section () {
@@ -344,7 +350,7 @@ public class Inspector : Object {
         gradient_angle_label.set_hexpand (true);
         gradient_angle_label.add_css_class ("caption");
         gradient_angle_row.append (gradient_angle_label);
-        bg_gradient_angle_spin = new Gtk.SpinButton.with_range (0, 360, 1);
+        bg_gradient_angle_spin = new Gtk.SpinButton.with_range (0, 324, 1);
         bg_gradient_angle_spin.set_value (model.gradient_angle);
         gradient_angle_row.append (bg_gradient_angle_spin);
         bg_gradient_container.append (gradient_angle_row);
@@ -434,10 +440,11 @@ public class Inspector : Object {
         zoom_label.set_max_width_chars (4);
         zoom_label.add_css_class ("numeric");
         var zoom_btn = new Gtk.MenuButton ();
+        zoom_btn.set_tooltip_text ("Zoom level");
         zoom_btn.set_size_request (80, -1);
         var zoom_pop = new Gtk.Popover ();
         var pop_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
-        pop_box.set_size_request (300, 64);
+        pop_box.set_size_request (324, 64);
         pop_box.append (zoom_scale);
         zoom_pop.set_child (pop_box);
         zoom_btn.set_popover (zoom_pop);
@@ -572,9 +579,13 @@ public class Inspector : Object {
         corner_grid.set_valign (Gtk.Align.CENTER);
         corner_grid.set_hexpand (false);
         corner_radius_tl_entry = create_corner_entry ();
+        corner_radius_tl_entry.set_tooltip_text ("Top-left corner radius");
         corner_radius_tr_entry = create_corner_entry ();
+        corner_radius_tr_entry.set_tooltip_text ("Top-right corner radius");
         corner_radius_br_entry = create_corner_entry ();
+        corner_radius_br_entry.set_tooltip_text ("Bottom-right corner radius");
         corner_radius_bl_entry = create_corner_entry ();
+        corner_radius_bl_entry.set_tooltip_text ("Bottom-left corner radius");
         corner_radius_lock_toggle = new Gtk.ToggleButton ();
         corner_radius_lock_toggle.add_css_class ("flat");
         corner_radius_lock_toggle.add_css_class ("circular");
@@ -621,7 +632,7 @@ public class Inspector : Object {
         line_controls_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
         line_controls_box.add_css_class ("mini-content-block");
         line_length_spin = new Gtk.SpinButton.with_range (1, 155, 1);
-        line_angle_spin = new Gtk.SpinButton.with_range (0, 360, 1);
+        line_angle_spin = new Gtk.SpinButton.with_range (0, 324, 1);
         var line_length_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
         var line_length_label = new Gtk.Label ("Length") { xalign = 0.0f, hexpand = true };
         line_length_label.add_css_class ("caption");
@@ -639,7 +650,7 @@ public class Inspector : Object {
 
         element_angle_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
         element_angle_box.add_css_class ("mini-content-block");
-        element_angle_spin = new Gtk.SpinButton.with_range (0, 360, 1);
+        element_angle_spin = new Gtk.SpinButton.with_range (0, 324, 1);
         var rotation_label = new Gtk.Label ("Rotation") { xalign = 0.0f, hexpand = true };
         rotation_label.add_css_class ("caption");
         element_angle_box.append (rotation_label);
@@ -689,7 +700,7 @@ public class Inspector : Object {
         fill_gradient_color_row.set_visible (false);
         fill_box.append (fill_gradient_color_row);
 
-        fill_gradient_angle_spin = new Gtk.SpinButton.with_range (0, 360, 1);
+        fill_gradient_angle_spin = new Gtk.SpinButton.with_range (0, 324, 1);
         fill_gradient_angle_spin.set_value (0.0);
         fill_gradient_angle_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
         var gradient_angle_label2 = new Gtk.Label ("Gradient Angle") { xalign = 0.0f, hexpand = true };
@@ -735,7 +746,7 @@ public class Inspector : Object {
         props_area.append (stroke_box);
     }
 
-    private void build_signals (Gtk.Button export_btn) {
+    private void build_signals () {
         bg_variant_drop.notify["selected"].connect (() => {
             if (updating)return;
             uint idx = bg_variant_drop.get_selected ();
@@ -830,10 +841,6 @@ public class Inspector : Object {
             canvas.queue_draw ();
         });
 
-        export_btn.clicked.connect (() => {
-            owner.open_export_dialog ();
-        });
-
         x_entry.value_changed.connect (() => {
             if (updating)return;
             var element = owner.get_selected_element ();
@@ -890,7 +897,7 @@ public class Inspector : Object {
             if (element.type != ElementType.LINE)return;
             float value = (float) GLib.Math.fmax (line_length_spin.get_value (), 1.0);
             element.line_length = value;
-            owner.refresh_line_deltas (element);
+            refresh_line_deltas (element);
             canvas.queue_draw ();
         });
 
@@ -900,7 +907,7 @@ public class Inspector : Object {
             if (element == null)return;
             if (element.type != ElementType.LINE)return;
             element.line_angle = line_angle_spin.get_value ();
-            owner.refresh_line_deltas (element);
+            refresh_line_deltas (element);
             canvas.queue_draw ();
         });
 
@@ -1129,8 +1136,8 @@ public class Inspector : Object {
     private void update_sidebar_visibility (bool show) {
         container.set_visible (show);
         if (show) {
-            main_appbar.set_margin_end (348);
-            canvas.set_margin_end (348);
+            main_appbar.set_margin_end (owner.INSPECTOR_WIDTH + 12);
+            canvas.set_margin_end (owner.INSPECTOR_WIDTH + 12);
             main_appbar.show_right_title_buttons = false;
         } else {
             main_appbar.set_margin_end (0);
@@ -1142,6 +1149,7 @@ public class Inspector : Object {
     private Gtk.Button create_color_button (Gdk.RGBA initial_color) {
         var btn = new Gtk.Button ();
         btn.set_size_request (48, 32);
+        btn.set_tooltip_text ("Click to choose color");
         var area = new Gtk.DrawingArea ();
         area.set_content_width (48);
         area.set_content_height (32);
@@ -1298,6 +1306,7 @@ public class Inspector : Object {
                 swatch_btn.set_size_request (42, 42);
                 swatch_btn.set_halign (Gtk.Align.CENTER);
                 swatch_btn.set_valign (Gtk.Align.CENTER);
+                swatch_btn.set_tooltip_text (IconiUtils.rgba_to_hex (shade));
 
                 var area = new Gtk.DrawingArea ();
                 area.set_content_width (42);

@@ -17,6 +17,64 @@ public class Sidebar : Object {
         return container;
     }
 
+    public void load_svg_file (GLib.File file) {
+        try {
+            uint8[] contents;
+            file.load_contents (null, out contents, null);
+            var svg_data = (string) contents;
+            double intrinsic_width = 109.0;
+            double intrinsic_height = 109.0;
+            try {
+                var handle = new Rsvg.Handle.from_data (contents);
+                Rsvg.Rectangle ink_rect;
+                Rsvg.Rectangle logical_rect;
+                if (handle.get_geometry_for_element (null, out ink_rect, out logical_rect)) {
+                    double logical_w = logical_rect.width;
+                    double logical_h = logical_rect.height;
+                    if (logical_w > 0.0 && logical_h > 0.0) {
+                        double max_dim = GLib.Math.fmax (logical_w, logical_h);
+                        double scale = 1.0;
+                        if (max_dim > 109.0) {
+                            scale = 109.0 / max_dim;
+                        }
+                        intrinsic_width = logical_w * scale;
+                        intrinsic_height = logical_h * scale;
+                    }
+                }
+            } catch (Error geom_err) {
+                GLib.warning ("Failed to read SVG geometry: %s", geom_err.message);
+            }
+
+            double clamped_width = GLib.Math.fmin (intrinsic_width, 109.0);
+            double clamped_height = GLib.Math.fmin (intrinsic_height, 109.0);
+            double start_x = (109.0 - clamped_width) / 2.0;
+            double start_y = (109.0 - clamped_height) / 2.0;
+
+            var e = new IconElement (ElementType.SVG);
+            e.svg_data = svg_data;
+            e.width = (float) clamped_width;
+            e.height = (float) clamped_height;
+            e.x = (float) start_x;
+            e.y = (float) start_y;
+            Gdk.RGBA svg_fill;
+            if (IconiUtils.try_extract_svg_color (svg_data, "fill", out svg_fill)) {
+                e.fill = svg_fill;
+                e.gradient_secondary = svg_fill;
+            }
+            Gdk.RGBA svg_stroke;
+            if (IconiUtils.try_extract_svg_color (svg_data, "stroke", out svg_stroke)) {
+                e.stroke = svg_stroke;
+            }
+            double stroke_width;
+            if (IconiUtils.try_extract_svg_numeric (svg_data, "stroke-width", out stroke_width)) {
+                e.stroke_width = (float) stroke_width;
+            }
+            owner.add_element_in_new_group (e);
+        } catch (Error err) {
+            warning ("Failed to load SVG: %s", err.message);
+        }
+    }
+
     public void refresh () {
         if (listbox == null)return;
         while (true) {
@@ -193,28 +251,39 @@ public class Sidebar : Object {
 
     private void build_ui () {
         container = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
-        container.set_size_request (260, -1);
         container.set_vexpand (true);
         container.set_hexpand_set (true);
         container.set_halign (Gtk.Align.START);
         container.add_css_class ("sidebar-view");
 
         var appbar = new He.AppBar ();
+        appbar.set_size_request (313, -1);
         appbar.show_left_title_buttons = true;
         appbar.show_right_title_buttons = false;
         container.append (appbar);
 
         var left_header = new Gtk.Label (null);
         left_header.add_css_class ("view-title");
-        left_header.set_markup ("Elements");
+        left_header.set_markup ("Layers");
         left_header.set_halign (Gtk.Align.START);
         left_header.set_hexpand (true);
 
         reorder_toggle = new Gtk.ToggleButton ();
-        reorder_toggle.icon_name = "document-edit-symbolic";
+        reorder_toggle.tooltip_text = "Reorder Mode";
+        reorder_toggle.icon_name = "selection-mode-symbolic";
 
         appbar.viewtitle_widget = left_header;
         appbar.append_toggle (reorder_toggle);
+
+        var main_menu = new GLib.Menu ();
+        main_menu.append ("Export…", "app.export");
+        main_menu.append ("About Iconi…", "app.about");
+
+        var menu_button = new Gtk.MenuButton ();
+        menu_button.set_icon_name ("open-menu-symbolic");
+        menu_button.set_tooltip_text ("Main Menu");
+        menu_button.set_menu_model (main_menu);
+        appbar.append_menu (menu_button);
 
         add_pop = new Gtk.Popover ();
         add_pop.set_autohide (true);
@@ -260,7 +329,7 @@ public class Sidebar : Object {
                 var file = files.nth_data (i);
                 var path = file.get_path ();
                 if (path != null && path.down ().has_suffix (".svg")) {
-                    owner.load_svg_file (file);
+                    load_svg_file (file);
                 }
             }
             return true;
@@ -310,7 +379,12 @@ public class Sidebar : Object {
             element.line_length = 56.0f;
             element.line_angle = 0.0;
             element.gradient_secondary = element.stroke;
-            owner.refresh_line_deltas (element);
+            double angle_rad = element.line_angle * (GLib.Math.PI / 180.0);
+            double length = element.line_length;
+            double dx = GLib.Math.cos (angle_rad) * length;
+            double dy = GLib.Math.sin (angle_rad) * length;
+            element.width = (float) dx;
+            element.height = (float) dy;
             owner.add_element_in_new_group (element);
             refresh ();
             owner.sidebar_selection_changed ();
@@ -330,7 +404,7 @@ public class Sidebar : Object {
                 try {
                     var file = file_chooser.open.end (res);
                     if (file != null) {
-                        owner.load_svg_file (file);
+                        load_svg_file (file);
                     }
                 } catch (Error e) {
                 }

@@ -3,6 +3,9 @@ public class IconMakerWindow : He.ApplicationWindow {
     private IconRenderer renderer;
     private const double SAFE_VIEW_SIZE = 109.0;
     private const int SVG_VIEWPORT_SIZE = 128;
+    private const int SIDEBAR_WIDTH = 313;
+
+    public const int INSPECTOR_WIDTH = 360;
 
     private Gtk.DrawingArea canvas;
     private Gtk.Box center_box;
@@ -53,61 +56,7 @@ public class IconMakerWindow : He.ApplicationWindow {
     }
 
     public void load_svg_file (GLib.File file) {
-        try {
-            uint8[] contents;
-            file.load_contents (null, out contents, null);
-            var svg_data = (string) contents;
-            double intrinsic_width = SAFE_VIEW_SIZE;
-            double intrinsic_height = SAFE_VIEW_SIZE;
-            try {
-                var handle = new Rsvg.Handle.from_data (contents);
-                Rsvg.Rectangle ink_rect;
-                Rsvg.Rectangle logical_rect;
-                if (handle.get_geometry_for_element (null, out ink_rect, out logical_rect)) {
-                    double logical_w = logical_rect.width;
-                    double logical_h = logical_rect.height;
-                    if (logical_w > 0.0 && logical_h > 0.0) {
-                        double max_dim = GLib.Math.fmax (logical_w, logical_h);
-                        double scale = 1.0;
-                        if (max_dim > SAFE_VIEW_SIZE) {
-                            scale = SAFE_VIEW_SIZE / max_dim;
-                        }
-                        intrinsic_width = logical_w * scale;
-                        intrinsic_height = logical_h * scale;
-                    }
-                }
-            } catch (Error geom_err) {
-                GLib.warning ("Failed to read SVG geometry: %s", geom_err.message);
-            }
-
-            double clamped_width = GLib.Math.fmin (intrinsic_width, SAFE_VIEW_SIZE);
-            double clamped_height = GLib.Math.fmin (intrinsic_height, SAFE_VIEW_SIZE);
-            double start_x = (SAFE_VIEW_SIZE - clamped_width) / 2.0;
-            double start_y = (SAFE_VIEW_SIZE - clamped_height) / 2.0;
-
-            var e = new IconElement (ElementType.SVG);
-            e.svg_data = svg_data;
-            e.width = (float) clamped_width;
-            e.height = (float) clamped_height;
-            e.x = (float) start_x;
-            e.y = (float) start_y;
-            Gdk.RGBA svg_fill;
-            if (IconiUtils.try_extract_svg_color (svg_data, "fill", out svg_fill)) {
-                e.fill = svg_fill;
-                e.gradient_secondary = svg_fill;
-            }
-            Gdk.RGBA svg_stroke;
-            if (IconiUtils.try_extract_svg_color (svg_data, "stroke", out svg_stroke)) {
-                e.stroke = svg_stroke;
-            }
-            double stroke_width;
-            if (IconiUtils.try_extract_svg_numeric (svg_data, "stroke-width", out stroke_width)) {
-                e.stroke_width = (float) stroke_width;
-            }
-            add_element_in_new_group (e);
-        } catch (Error err) {
-            warning ("Failed to load SVG: %s", err.message);
-        }
+        sidebar.load_svg_file (file);
     }
 
     public void remove_element_at (int group_index, int element_index) {
@@ -195,13 +144,8 @@ public class IconMakerWindow : He.ApplicationWindow {
     }
 
     public void refresh_line_deltas (IconElement el) {
-        if (el.type != ElementType.LINE)return;
-        double angle_rad = el.line_angle * (GLib.Math.PI / 180.0);
-        double length = el.line_length;
-        double dx = GLib.Math.cos (angle_rad) * length;
-        double dy = GLib.Math.sin (angle_rad) * length;
-        el.width = (float) dx;
-        el.height = (float) dy;
+        inspector.refresh_line_deltas (el);
+        canvas.queue_draw ();
     }
 
     public void sidebar_selection_changed () {
@@ -279,7 +223,7 @@ public class IconMakerWindow : He.ApplicationWindow {
                 if (file != null) {
                     string path = file.get_path ();
                     if (path != null) {
-                        export_to_svg (path);
+                        IconiUtils.export_icon_to_svg (model, path);
                     }
                 }
             } catch (Error e) {
@@ -334,8 +278,8 @@ public class IconMakerWindow : He.ApplicationWindow {
         mappbar = new He.AppBar ();
         mappbar.show_left_title_buttons = false;
         mappbar.show_right_title_buttons = false;
-        mappbar.set_margin_end (342);
-        mappbar.set_margin_start (260);
+        mappbar.set_margin_end (INSPECTOR_WIDTH + 12);
+        mappbar.set_margin_start (SIDEBAR_WIDTH + 12);
         mappbar.add_css_class ("main-appbar");
         center_box.append (mappbar);
 
@@ -351,6 +295,7 @@ public class IconMakerWindow : He.ApplicationWindow {
         name_entry.set_size_request (180, -1);
 
         var name_stack = new Gtk.Stack ();
+        name_stack.set_halign (Gtk.Align.START);
         name_stack.add_named (name_label, "label");
         name_stack.add_named (name_entry, "entry");
         name_stack.set_visible_child_name ("label");
@@ -483,8 +428,8 @@ public class IconMakerWindow : He.ApplicationWindow {
         }
 
         canvas = new Gtk.DrawingArea ();
-        canvas.set_margin_end (342);
-        canvas.set_margin_start (272);
+        canvas.set_margin_end (INSPECTOR_WIDTH + 12);
+        canvas.set_margin_start (SIDEBAR_WIDTH + 12);
         canvas.set_content_width (SVG_VIEWPORT_SIZE);
         canvas.set_content_height (SVG_VIEWPORT_SIZE);
         canvas.set_hexpand (true);
@@ -522,219 +467,5 @@ public class IconMakerWindow : He.ApplicationWindow {
         apply_view_background_css ();
 
         this.present ();
-    }
-
-    private void export_to_svg (string filename) {
-        try {
-            var file = GLib.File.new_for_path (filename);
-            var stream = file.replace (null, false, GLib.FileCreateFlags.NONE);
-            var data_stream = new GLib.DataOutputStream (stream);
-
-            double svg_size = 109.0;
-            double offset = (128.0 - svg_size) / 2.0;
-            double radius = 24.0;
-
-            data_stream.put_string ("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
-            data_stream.put_string ("<svg xmlns=\"http://www.w3.org/2000/svg\" ");
-            data_stream.put_string ("width=\"128\" height=\"128\" viewBox=\"0 0 128 128\">\n");
-            data_stream.put_string ("  <defs>\n");
-
-            int gradient_id = 0;
-            if (model.use_gradient) {
-                gradient_id++;
-                string bg_grad_id = "gradient-bg";
-                double angle_rad = model.gradient_angle * (GLib.Math.PI / 180.0);
-                double cx = 64.0;
-                double cy = 64.0;
-                double max_distance = GLib.Math.sqrt (cx * cx + cy * cy);
-                double x2 = cx + GLib.Math.cos (angle_rad) * max_distance;
-                double y2 = cy + GLib.Math.sin (angle_rad) * max_distance;
-                double x1 = cx - GLib.Math.cos (angle_rad) * max_distance;
-                double y1 = cy - GLib.Math.sin (angle_rad) * max_distance;
-                string start_color = IconiUtils.rgba_to_hex (model.background);
-                string end_color = IconiUtils.rgba_to_hex (model.gradient_secondary);
-                data_stream.put_string ("    <linearGradient id=\"%s\" x1=\"%g\" y1=\"%g\" x2=\"%g\" y2=\"%g\" gradientUnits=\"userSpaceOnUse\">\n".printf (bg_grad_id, x1, y1, x2, y2));
-                data_stream.put_string ("      <stop offset=\"0%%\" style=\"stop-color:%s;stop-opacity:1.0\" />\n".printf (start_color));
-                data_stream.put_string ("      <stop offset=\"100%%\" style=\"stop-color:%s;stop-opacity:1.0\" />\n".printf (end_color));
-                data_stream.put_string ("    </linearGradient>\n");
-            }
-
-            for (int g = 0; g < (int) model.groups.get_n_items (); g++) {
-                var group = (ElementGroup) model.groups.get_item ((uint) g);
-                int element_count = (int) group.elements.get_n_items ();
-                for (int i = 0; i < element_count; i++) {
-                    var el = (IconElement) group.elements.get_item ((uint) i);
-                    if (el.use_gradient) {
-                        gradient_id++;
-                        string grad_id = "gradient-%d".printf (gradient_id);
-                        double angle_rad = el.gradient_angle * (GLib.Math.PI / 180.0);
-                        double cx = el.x + el.width / 2.0;
-                        double cy = el.y + el.height / 2.0;
-                        double max_distance = GLib.Math.sqrt ((el.width / 2.0) * (el.width / 2.0) + (el.height / 2.0) * (el.height / 2.0));
-                        double x2 = cx + GLib.Math.cos (angle_rad) * max_distance;
-                        double y2 = cy + GLib.Math.sin (angle_rad) * max_distance;
-                        double x1 = cx - GLib.Math.cos (angle_rad) * max_distance;
-                        double y1 = cy - GLib.Math.sin (angle_rad) * max_distance;
-                        string start_color = IconiUtils.rgba_to_hex (el.fill);
-                        string end_color = IconiUtils.rgba_to_hex (el.gradient_secondary);
-                        data_stream.put_string ("    <linearGradient id=\"%s\" x1=\"%g\" y1=\"%g\" x2=\"%g\" y2=\"%g\" gradientUnits=\"userSpaceOnUse\">\n".printf (grad_id, x1 + offset, y1 + offset, x2 + offset, y2 + offset));
-                        data_stream.put_string ("      <stop offset=\"0%%\" style=\"stop-color:%s;stop-opacity:1.0\" />\n".printf (start_color));
-                        data_stream.put_string ("      <stop offset=\"100%%\" style=\"stop-color:%s;stop-opacity:1.0\" />\n".printf (end_color));
-                        data_stream.put_string ("    </linearGradient>\n");
-                    }
-                }
-            }
-
-            data_stream.put_string ("  </defs>\n");
-
-            if (model.use_gradient) {
-                data_stream.put_string ("  <rect id=\"background\" x=\"%g\" y=\"%g\" width=\"%g\" height=\"%g\" rx=\"%g\" ry=\"%g\" fill=\"url(#gradient-bg)\" />\n".printf (offset, offset, svg_size, svg_size, radius, radius));
-            } else {
-                string bg_color = IconiUtils.rgba_to_hex (model.background);
-                data_stream.put_string ("  <rect id=\"background\" x=\"%g\" y=\"%g\" width=\"%g\" height=\"%g\" rx=\"%g\" ry=\"%g\" fill=\"%s\" />\n".printf (offset, offset, svg_size, svg_size, radius, radius, bg_color));
-            }
-
-            data_stream.put_string ("  <g id=\"content\">\n");
-
-            gradient_id = 0;
-            if (model.use_gradient) {
-                gradient_id++;
-            }
-
-            for (int g = 0; g < (int) model.groups.get_n_items (); g++) {
-                var group = (ElementGroup) model.groups.get_item ((uint) g);
-                string group_id = "group-%d".printf (g);
-                string blend_mode = group.blend_mode;
-                data_stream.put_string ("    <g id=\"%s\" style=\"mix-blend-mode:%s;\">\n".printf (group_id, blend_mode));
-
-                int element_count = (int) group.elements.get_n_items ();
-                for (int i = 0; i < element_count; i++) {
-                    var el = (IconElement) group.elements.get_item ((uint) i);
-                    string element_id = "element-%d-%d".printf (g, i);
-                    string transform_str = "";
-                    if (el.element_angle != 0.0) {
-                        double center_x = offset + el.x + el.width / 2.0;
-                        double center_y = offset + el.y + el.height / 2.0;
-                        transform_str = " transform=\"rotate(%g %g %g)\"".printf (el.element_angle, center_x, center_y);
-                    }
-
-                    if (el.type == ElementType.RECTANGLE) {
-                        string fill_value = "";
-                        float fill_opacity = 1.0f;
-                        if (el.use_gradient) {
-                            gradient_id++;
-                            fill_value = "url(#gradient-%d)".printf (gradient_id);
-                            fill_opacity = 1.0f;
-                        } else {
-                            fill_value = IconiUtils.rgba_to_hex (el.fill);
-                            fill_opacity = el.fill.alpha;
-                        }
-                        string stroke_value = IconiUtils.rgba_to_hex (el.stroke);
-                        float stroke_opacity = el.stroke.alpha;
-                        data_stream.put_string ("      <rect id=\"%s\" x=\"%g\" y=\"%g\" width=\"%g\" height=\"%g\" ".printf (element_id, offset + el.x, offset + el.y, el.width, el.height));
-                        data_stream.put_string ("rx=\"%g\" ry=\"%g\" ".printf (el.corner_radius_top_left, el.corner_radius_top_left));
-                        data_stream.put_string ("fill=\"%s\" fill-opacity=\"%.3f\" ".printf (fill_value, fill_opacity));
-                        data_stream.put_string ("stroke=\"%s\" stroke-opacity=\"%.3f\" stroke-width=\"%g\"%s/>\n".printf (stroke_value, stroke_opacity, el.stroke_width, transform_str));
-                    } else if (el.type == ElementType.CIRCLE) {
-                        double cx = offset + el.x + el.width / 2.0;
-                        double cy = offset + el.y + el.height / 2.0;
-                        double rx = el.width / 2.0;
-                        double ry = el.height / 2.0;
-                        string fill_value = "";
-                        float fill_opacity = 1.0f;
-                        if (el.use_gradient) {
-                            gradient_id++;
-                            fill_value = "url(#gradient-%d)".printf (gradient_id);
-                            fill_opacity = 1.0f;
-                        } else {
-                            fill_value = IconiUtils.rgba_to_hex (el.fill);
-                            fill_opacity = el.fill.alpha;
-                        }
-                        string stroke_value = IconiUtils.rgba_to_hex (el.stroke);
-                        float stroke_opacity = el.stroke.alpha;
-                        data_stream.put_string ("      <ellipse id=\"%s\" cx=\"%g\" cy=\"%g\" rx=\"%g\" ry=\"%g\" ".printf (element_id, cx, cy, rx, ry));
-                        data_stream.put_string ("fill=\"%s\" fill-opacity=\"%.3f\" ".printf (fill_value, fill_opacity));
-                        data_stream.put_string ("stroke=\"%s\" stroke-opacity=\"%.3f\" stroke-width=\"%g\"%s/>\n".printf (stroke_value, stroke_opacity, el.stroke_width, transform_str));
-                    } else if (el.type == ElementType.LINE) {
-                        double x2 = el.x + el.width;
-                        double y2 = el.y + el.height;
-                        string stroke_value = IconiUtils.rgba_to_hex (el.stroke);
-                        float stroke_opacity = el.stroke.alpha;
-                        if (el.use_gradient) {
-                            gradient_id++;
-                            string line_grad_id = "gradient-%d".printf (gradient_id);
-                            data_stream.put_string ("      <line id=\"%s\" x1=\"%g\" y1=\"%g\" x2=\"%g\" y2=\"%g\" ".printf (element_id, offset + el.x, offset + el.y, offset + x2, offset + y2));
-                            data_stream.put_string ("stroke=\"url(#%s)\" stroke-opacity=\"1.0\" stroke-width=\"%g\"%s/>\n".printf (line_grad_id, el.stroke_width, transform_str));
-                        } else {
-                            data_stream.put_string ("      <line id=\"%s\" x1=\"%g\" y1=\"%g\" x2=\"%g\" y2=\"%g\" ".printf (element_id, offset + el.x, offset + el.y, offset + x2, offset + y2));
-                            data_stream.put_string ("stroke=\"%s\" stroke-opacity=\"%.3f\" stroke-width=\"%g\"%s/>\n".printf (stroke_value, stroke_opacity, el.stroke_width, transform_str));
-                        }
-                    } else if (el.type == ElementType.SVG) {
-                        double svg_logical_width = el.width;
-                        double svg_logical_height = el.height;
-                        double scale_x = 1.0;
-                        double scale_y = 1.0;
-                        try {
-                            var svg_handle = new Rsvg.Handle.from_data (el.svg_data.data);
-                            Rsvg.Rectangle ink_rect;
-                            Rsvg.Rectangle logical_rect;
-                            if (svg_handle.get_geometry_for_element (null, out ink_rect, out logical_rect)) {
-                                double logical_w = logical_rect.width;
-                                double logical_h = logical_rect.height;
-                                if (logical_w > 0.0 && logical_h > 0.0) {
-                                    svg_logical_width = logical_w;
-                                    svg_logical_height = logical_h;
-                                    scale_x = ((double) el.width) / logical_w;
-                                    scale_y = ((double) el.height) / logical_h;
-                                }
-                            }
-                        } catch (Error geo_err) {
-                            GLib.warning ("Failed to read embedded SVG geometry: %s", geo_err.message);
-                        }
-                        bool scale_needed = (GLib.Math.fabs (scale_x - 1.0) > 0.00001) || (GLib.Math.fabs (scale_y - 1.0) > 0.00001);
-                        data_stream.put_string ("      <g id=\"%s\"%s>\n".printf (element_id, transform_str));
-                        data_stream.put_string ("        <g transform=\"translate(%g,%g)\">\n".printf (offset + el.x, offset + el.y));
-                        if (scale_needed) {
-                            data_stream.put_string ("          <g transform=\"scale(%g,%g)\">\n".printf (scale_x, scale_y));
-                        }
-                        string normalized_svg = IconiUtils.normalize_overlay_svg (el.svg_data);
-                        if (normalized_svg.strip ().length > 0) {
-                            var svg_lines = normalized_svg.split ("\n");
-                            for (int line_index = 0; line_index < svg_lines.length; line_index++) {
-                                string inline_line = svg_lines[line_index];
-                                string indent = scale_needed ? "            " : "          ";
-                                data_stream.put_string (indent);
-                                data_stream.put_string (inline_line);
-                                data_stream.put_string ("\n");
-                            }
-                        }
-                        if (scale_needed) {
-                            data_stream.put_string ("          </g>\n");
-                        }
-                        data_stream.put_string ("        </g>\n");
-                        data_stream.put_string ("      </g>\n");
-                    }
-                }
-                data_stream.put_string ("    </g>\n");
-            }
-
-            data_stream.put_string ("  </g>\n");
-
-            if (model.use_raised_effect) {
-                IconiUtils.write_overlay_svg (data_stream, "effects", "/com/fyralabs/Iconi/effects.svg", 1.0, offset, offset);
-            }
-            if (model.use_frame_overlay) {
-                IconiUtils.write_overlay_svg (data_stream, "frame", "/com/fyralabs/Iconi/frame.svg", 1.0, offset, offset);
-            }
-            if (model.show_dev_badge) {
-                IconiUtils.write_dev_badge_svg (data_stream);
-            }
-
-            data_stream.put_string ("</svg>\n");
-
-            data_stream.close ();
-        } catch (GLib.Error e) {
-            GLib.warning ("Failed to export SVG: %s", e.message);
-        }
     }
 }
