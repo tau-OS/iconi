@@ -65,6 +65,7 @@ public class Inspector : Object {
     private Gtk.Entry stroke_opacity_entry;
     private Gtk.SpinButton stroke_width_spin;
     private Gtk.DropDown fill_mode_drop;
+    private Gtk.Box fill_mode_row;
     private Gtk.Button fill_gradient_btn;
     private Gtk.SpinButton fill_gradient_angle_spin;
     private Gtk.Box fill_gradient_color_row;
@@ -239,11 +240,20 @@ public class Inspector : Object {
                     int stroke_opacity_value = (int) GLib.Math.round ((float) element.stroke.alpha * 100.0f);
                     stroke_opacity_entry.set_text (stroke_opacity_value.to_string ());
 
-                    fill_mode_drop.set_selected (element.use_gradient ? 1u : 0u);
-                    update_color_button (fill_gradient_btn, element.gradient_secondary);
-                    fill_gradient_angle_spin.set_value (element.gradient_angle);
-                    fill_gradient_color_row.set_visible (element.use_gradient);
-                    fill_gradient_angle_row.set_visible (element.use_gradient);
+                    bool is_svg = (element.type == ElementType.SVG);
+                    bool show_gradient = !is_svg && !is_line;
+                    fill_mode_row.set_visible (show_gradient);
+
+                    if (show_gradient) {
+                        fill_mode_drop.set_selected (element.use_gradient ? 1u : 0u);
+                        update_color_button (fill_gradient_btn, element.gradient_secondary);
+                        fill_gradient_angle_spin.set_value (element.gradient_angle);
+                        fill_gradient_color_row.set_visible (element.use_gradient);
+                        fill_gradient_angle_row.set_visible (element.use_gradient);
+                    } else {
+                        fill_gradient_color_row.set_visible (false);
+                        fill_gradient_angle_row.set_visible (false);
+                    }
                 }
             }
 
@@ -781,7 +791,7 @@ public class Inspector : Object {
         fill_mode_label.set_hexpand (true);
         fill_mode_label.add_css_class ("caption");
         fill_mode_drop = new Gtk.DropDown.from_strings (new string[] { "Solid", "Gradient" });
-        var fill_mode_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+        fill_mode_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
         fill_mode_row.append (fill_mode_label);
         fill_mode_row.append (fill_mode_drop);
         fill_box.append (fill_mode_row);
