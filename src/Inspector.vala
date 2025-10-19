@@ -40,7 +40,10 @@ public class Inspector : Object {
     private Gtk.Box size_box;
     private Gtk.Box corner_box;
     private Gtk.Grid corner_grid;
+    private Gtk.Box corner_entries_container;
+    private Gtk.Box corner_unified_row;
 
+    private Gtk.Entry corner_radius_unified_entry;
     private Gtk.Entry corner_radius_tl_entry;
     private Gtk.Entry corner_radius_tr_entry;
     private Gtk.Entry corner_radius_br_entry;
@@ -58,8 +61,8 @@ public class Inspector : Object {
 
     private Gtk.Button fill_btn;
     private Gtk.Button stroke_btn;
-    private Gtk.SpinButton fill_opacity_spin;
-    private Gtk.SpinButton stroke_opacity_spin;
+    private Gtk.Entry fill_opacity_entry;
+    private Gtk.Entry stroke_opacity_entry;
     private Gtk.SpinButton stroke_width_spin;
     private Gtk.DropDown fill_mode_drop;
     private Gtk.Button fill_gradient_btn;
@@ -78,6 +81,8 @@ public class Inspector : Object {
     private Gtk.SpinButton y_entry;
     private Gtk.SpinButton w_entry;
     private Gtk.SpinButton h_entry;
+    private Gtk.ToggleButton size_lock_toggle;
+    private Gtk.Image size_lock_picture;
 
     private Gtk.DropDown bg_variant_drop;
     private Gtk.Button bg_side_color_btn;
@@ -224,8 +229,10 @@ public class Inspector : Object {
 
                     element_angle_spin.set_value (element.element_angle);
 
-                    fill_opacity_spin.set_value ((double) ((float) element.fill.alpha * 100.0f));
-                    stroke_opacity_spin.set_value ((double) ((float) element.stroke.alpha * 100.0f));
+                    int fill_opacity_value = (int) GLib.Math.round ((float) element.fill.alpha * 100.0f);
+                    fill_opacity_entry.set_text (fill_opacity_value.to_string ());
+                    int stroke_opacity_value = (int) GLib.Math.round ((float) element.stroke.alpha * 100.0f);
+                    stroke_opacity_entry.set_text (stroke_opacity_value.to_string ());
 
                     fill_mode_drop.set_selected (element.use_gradient ? 1u : 0u);
                     update_color_button (fill_gradient_btn, element.gradient_secondary);
@@ -549,8 +556,14 @@ public class Inspector : Object {
         compositing_heading.add_css_class ("caption-heading");
         props_area.append (compositing_heading);
 
-        pos_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
+        // Combined Position and Alignment box
+        pos_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 12);
         pos_box.add_css_class ("mini-content-block");
+
+        // Position controls (left side)
+        var pos_controls = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
+        pos_controls.set_hexpand (true);
+
         x_entry = new Gtk.SpinButton.with_range (0, 109, 1);
         y_entry = new Gtk.SpinButton.with_range (0, 109, 1);
         var x_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
@@ -558,38 +571,120 @@ public class Inspector : Object {
         x_label.add_css_class ("caption");
         x_box.append (x_label);
         x_box.append (x_entry);
-        pos_box.append (x_box);
+        pos_controls.append (x_box);
+
         var y_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
         var y_label = new Gtk.Label ("Y") { xalign = 0.0f, hexpand = true };
         y_label.add_css_class ("caption");
         y_box.append (y_label);
         y_box.append (y_entry);
-        pos_box.append (y_box);
+        pos_controls.append (y_box);
+
+        pos_box.append (pos_controls);
+
+        // Alignment controls (right side)
+        align_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
+        align_box.set_hexpand (false);
+
+        align_grid = new Gtk.Grid ();
+        align_grid.set_column_homogeneous (true);
+        align_grid.set_row_homogeneous (true);
+        align_grid.set_halign (Gtk.Align.END);
+        align_grid.set_valign (Gtk.Align.CENTER);
+        align_grid.set_hexpand (false);
+
+        align_left_btn = create_align_icon_button (ICON_ALIGN_LEFT, "Align left");
+        align_center_btn = create_align_icon_button (ICON_ALIGN_CENTER, "Center both");
+        align_right_btn = create_align_icon_button (ICON_ALIGN_RIGHT, "Align right");
+        align_top_btn = create_align_icon_button (ICON_ALIGN_TOP, "Align top");
+        align_bottom_btn = create_align_icon_button (ICON_ALIGN_BOTTOM, "Align bottom");
+
+        align_grid.attach (align_top_btn, 1, 0, 1, 1);
+        align_grid.attach (align_left_btn, 0, 1, 1, 1);
+        align_grid.attach (align_center_btn, 1, 1, 1, 1);
+        align_grid.attach (align_right_btn, 2, 1, 1, 1);
+        align_grid.attach (align_bottom_btn, 1, 2, 1, 1);
+
+        align_box.append (align_grid);
+        pos_box.append (align_box);
+
         props_area.append (pos_box);
 
         size_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
         size_box.add_css_class ("mini-content-block");
+        var size_label_header = new Gtk.Label ("Size") { xalign = 0.0f, hexpand = true };
+        size_label_header.add_css_class ("caption");
+        size_box.append (size_label_header);
+
+        var size_grid = new Gtk.Grid ();
+        size_grid.set_column_spacing (6);
+        size_grid.set_row_spacing (6);
+        size_grid.set_halign (Gtk.Align.FILL);
+        size_grid.set_hexpand (true);
+
         w_entry = new Gtk.SpinButton.with_range (1, 109, 1);
+        w_entry.set_hexpand (true);
         h_entry = new Gtk.SpinButton.with_range (1, 109, 1);
-        var width_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
-        var width_label = new Gtk.Label ("Width") { xalign = 0.0f, hexpand = true };
+        h_entry.set_hexpand (true);
+
+        var width_label = new Gtk.Label ("W") { xalign = 0.0f };
         width_label.add_css_class ("caption");
-        width_box.append (width_label);
-        width_box.append (w_entry);
-        size_box.append (width_box);
-        var height_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
-        var height_label = new Gtk.Label ("Height") { xalign = 0.0f, hexpand = true };
+        var height_label = new Gtk.Label ("H") { xalign = 0.0f };
         height_label.add_css_class ("caption");
-        height_box.append (height_label);
-        height_box.append (h_entry);
-        size_box.append (height_box);
+
+        size_lock_toggle = new Gtk.ToggleButton ();
+        size_lock_toggle.add_css_class ("flat");
+        size_lock_toggle.add_css_class ("circular");
+        size_lock_toggle.set_focus_on_click (false);
+        size_lock_toggle.set_tooltip_text ("Lock proportions");
+        size_lock_toggle.set_halign (Gtk.Align.CENTER);
+        size_lock_toggle.set_valign (Gtk.Align.CENTER);
+        size_lock_picture = create_icon_picture (ICON_UNLOCKED);
+        size_lock_toggle.set_child (size_lock_picture);
+
+        size_grid.attach (width_label, 0, 0, 1, 1);
+        size_grid.attach (w_entry, 1, 0, 1, 1);
+        size_grid.attach (size_lock_toggle, 2, 0, 1, 2);
+        size_grid.attach (height_label, 0, 1, 1, 1);
+        size_grid.attach (h_entry, 1, 1, 1, 1);
+
+        size_box.append (size_grid);
         props_area.append (size_box);
 
         corner_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
         corner_box.add_css_class ("mini-content-block");
+
+        var corner_header_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
         var corner_radius_label = new Gtk.Label ("Corner Radius") { xalign = 0.0f, hexpand = true };
         corner_radius_label.add_css_class ("caption");
-        corner_box.append (corner_radius_label);
+
+        corner_radius_lock_toggle = new Gtk.ToggleButton ();
+        corner_radius_lock_toggle.add_css_class ("flat");
+        corner_radius_lock_toggle.add_css_class ("circular");
+        corner_radius_lock_toggle.set_focus_on_click (false);
+        corner_radius_lock_toggle.set_tooltip_text ("Lock corner radii");
+        corner_radius_lock_toggle.set_halign (Gtk.Align.END);
+        corner_radius_lock_toggle.set_valign (Gtk.Align.CENTER);
+        corner_radius_lock_picture = create_icon_picture (ICON_LOCKED);
+        corner_radius_lock_toggle.set_child (corner_radius_lock_picture);
+        corner_radius_lock_toggle.set_active (true);
+
+        corner_header_row.append (corner_radius_label);
+        corner_box.append (corner_header_row);
+
+        corner_entries_container = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
+        corner_entries_container.set_halign (Gtk.Align.END);
+        corner_entries_container.set_valign (Gtk.Align.CENTER);
+        corner_entries_container.set_hexpand (true);
+
+        // Unified entry for locked state
+        corner_unified_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+        corner_radius_unified_entry = create_corner_entry ();
+        corner_radius_unified_entry.set_tooltip_text ("All corners");
+        corner_radius_unified_entry.set_hexpand (true);
+        corner_unified_row.append (corner_radius_unified_entry);
+
+        // Grid for unlocked state (2x2)
         corner_grid = new Gtk.Grid ();
         corner_grid.set_column_spacing (6);
         corner_grid.set_row_spacing (6);
@@ -598,6 +693,7 @@ public class Inspector : Object {
         corner_grid.set_halign (Gtk.Align.CENTER);
         corner_grid.set_valign (Gtk.Align.CENTER);
         corner_grid.set_hexpand (false);
+
         corner_radius_tl_entry = create_corner_entry ();
         corner_radius_tl_entry.set_tooltip_text ("Top-left corner radius");
         corner_radius_tr_entry = create_corner_entry ();
@@ -606,48 +702,19 @@ public class Inspector : Object {
         corner_radius_br_entry.set_tooltip_text ("Bottom-right corner radius");
         corner_radius_bl_entry = create_corner_entry ();
         corner_radius_bl_entry.set_tooltip_text ("Bottom-left corner radius");
-        corner_radius_lock_toggle = new Gtk.ToggleButton ();
-        corner_radius_lock_toggle.add_css_class ("flat");
-        corner_radius_lock_toggle.add_css_class ("circular");
-        corner_radius_lock_toggle.set_focus_on_click (false);
-        corner_radius_lock_toggle.set_tooltip_text ("Lock corner radii");
-        corner_radius_lock_toggle.set_halign (Gtk.Align.CENTER);
-        corner_radius_lock_toggle.set_valign (Gtk.Align.CENTER);
-        corner_radius_lock_picture = create_icon_picture (ICON_LOCKED);
-        corner_radius_lock_toggle.set_child (corner_radius_lock_picture);
+
         corner_grid.attach (corner_radius_tl_entry, 0, 0, 1, 1);
-        corner_grid.attach (corner_radius_tr_entry, 2, 0, 1, 1);
-        corner_grid.attach (corner_radius_bl_entry, 0, 2, 1, 1);
-        corner_grid.attach (corner_radius_br_entry, 2, 2, 1, 1);
-        corner_grid.attach (corner_radius_lock_toggle, 1, 1, 1, 1);
-        corner_radius_lock_toggle.set_active (true);
-        corner_box.append (corner_grid);
+        corner_grid.attach (corner_radius_tr_entry, 1, 0, 1, 1);
+        corner_grid.attach (corner_radius_bl_entry, 0, 1, 1, 1);
+        corner_grid.attach (corner_radius_br_entry, 1, 1, 1, 1);
+        corner_grid.set_visible (false);
+
+        corner_entries_container.append (corner_unified_row);
+        corner_entries_container.append (corner_grid);
+        corner_header_row.append (corner_entries_container);
+        corner_header_row.append (corner_radius_lock_toggle);
         corner_box.set_visible (false);
         props_area.append (corner_box);
-
-        align_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
-        align_box.add_css_class ("mini-content-block");
-        var align_label = new Gtk.Label ("Alignment") { xalign = 0.0f, hexpand = true };
-        align_label.add_css_class ("caption");
-        align_box.append (align_label);
-        align_grid = new Gtk.Grid ();
-        align_grid.set_column_homogeneous (true);
-        align_grid.set_row_homogeneous (true);
-        align_grid.set_halign (Gtk.Align.CENTER);
-        align_grid.set_valign (Gtk.Align.CENTER);
-        align_grid.set_hexpand (false);
-        align_left_btn = create_align_icon_button (ICON_ALIGN_LEFT, "Align left");
-        align_center_btn = create_align_icon_button (ICON_ALIGN_CENTER, "Align center");
-        align_right_btn = create_align_icon_button (ICON_ALIGN_RIGHT, "Align right");
-        align_top_btn = create_align_icon_button (ICON_ALIGN_TOP, "Align top");
-        align_bottom_btn = create_align_icon_button (ICON_ALIGN_BOTTOM, "Align bottom");
-        align_grid.attach (align_top_btn, 1, 0, 1, 1);
-        align_grid.attach (align_left_btn, 0, 1, 1, 1);
-        align_grid.attach (align_center_btn, 1, 1, 1, 1);
-        align_grid.attach (align_right_btn, 2, 1, 1, 1);
-        align_grid.attach (align_bottom_btn, 1, 2, 1, 1);
-        align_box.append (align_grid);
-        props_area.append (align_box);
 
         line_controls_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
         line_controls_box.add_css_class ("mini-content-block");
@@ -691,9 +758,12 @@ public class Inspector : Object {
         Gdk.RGBA default_fill = { 0 };
         default_fill.parse ("#ffffff");
         fill_btn = create_color_button (default_fill);
+        fill_opacity_entry = create_opacity_entry ();
+        fill_opacity_entry.set_tooltip_text ("Fill opacity (0-100)");
         var fill_color_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
         fill_color_row.append (fill_label);
         fill_color_row.append (fill_btn);
+        fill_color_row.append (fill_opacity_entry);
         fill_box.append (fill_color_row);
 
         fill_mode_label = new Gtk.Label ("Fill Mode");
@@ -705,14 +775,6 @@ public class Inspector : Object {
         fill_mode_row.append (fill_mode_label);
         fill_mode_row.append (fill_mode_drop);
         fill_box.append (fill_mode_row);
-
-        fill_opacity_spin = new Gtk.SpinButton.with_range (0, 100, 1);
-        var fill_opacity_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
-        var fill_opacity_label = new Gtk.Label ("Fill Opacity (%)") { xalign = 0.0f, hexpand = true };
-        fill_opacity_label.add_css_class ("caption");
-        fill_opacity_row.append (fill_opacity_label);
-        fill_opacity_row.append (fill_opacity_spin);
-        fill_box.append (fill_opacity_row);
 
         fill_gradient_btn = create_color_button ({ 0.533f, 0.533f, 0.533f, 1.0f });
         fill_gradient_angle_label = new Gtk.Label ("Gradient End");
@@ -746,18 +808,13 @@ public class Inspector : Object {
         Gdk.RGBA default_stroke = { 0 };
         default_stroke.parse ("#000000");
         stroke_btn = create_color_button (default_stroke);
+        stroke_opacity_entry = create_opacity_entry ();
+        stroke_opacity_entry.set_tooltip_text ("Stroke opacity (0-100)");
         var stroke_color_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
         stroke_color_row.append (stroke_label);
         stroke_color_row.append (stroke_btn);
+        stroke_color_row.append (stroke_opacity_entry);
         stroke_box.append (stroke_color_row);
-
-        stroke_opacity_spin = new Gtk.SpinButton.with_range (0, 100, 1);
-        var stroke_opacity_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
-        var stroke_opacity_label = new Gtk.Label ("Stroke Opacity (%)") { xalign = 0.0f, hexpand = true };
-        stroke_opacity_label.add_css_class ("caption");
-        stroke_opacity_row.append (stroke_opacity_label);
-        stroke_opacity_row.append (stroke_opacity_spin);
-        stroke_box.append (stroke_opacity_row);
 
         stroke_width_spin = new Gtk.SpinButton.with_range (0, 20, 0.5);
         stroke_width_spin.set_digits (1);
@@ -890,6 +947,17 @@ public class Inspector : Object {
             if (element == null)return;
             if (element.type == ElementType.LINE)return;
             double bounded_w = GLib.Math.fmax (1.0, GLib.Math.fmin (w_entry.get_value (), 109.0));
+
+            if (size_lock_toggle.get_active () && element.height > 0.0f) {
+                double ratio = element.height / element.width;
+                double new_h = bounded_w * ratio;
+                new_h = GLib.Math.fmax (1.0, GLib.Math.fmin (new_h, 109.0));
+                element.height = (float) new_h;
+                updating = true;
+                h_entry.set_value (new_h);
+                updating = false;
+            }
+
             element.width = (float) bounded_w;
             apply_corner_radius_constraints (element);
             canvas.queue_draw ();
@@ -901,6 +969,17 @@ public class Inspector : Object {
             if (element == null)return;
             if (element.type == ElementType.LINE)return;
             double bounded_h = GLib.Math.fmax (1.0, GLib.Math.fmin (h_entry.get_value (), 109.0));
+
+            if (size_lock_toggle.get_active () && element.width > 0.0f) {
+                double ratio = element.width / element.height;
+                double new_w = bounded_h * ratio;
+                new_w = GLib.Math.fmax (1.0, GLib.Math.fmin (new_w, 109.0));
+                element.width = (float) new_w;
+                updating = true;
+                w_entry.set_value (new_w);
+                updating = false;
+            }
+
             element.height = (float) bounded_h;
             apply_corner_radius_constraints (element);
             canvas.queue_draw ();
@@ -971,20 +1050,56 @@ public class Inspector : Object {
             });
         });
 
-        fill_opacity_spin.value_changed.connect (() => {
+        fill_opacity_entry.changed.connect (() => {
             if (updating)return;
             var element = owner.get_selected_element ();
             if (element == null)return;
-            element.fill.alpha = (float) (fill_opacity_spin.get_value () / 100.0);
+            string raw = fill_opacity_entry.get_text ();
+            string sanitized = IconiUtils.sanitize_numeric_text (raw, 3u);
+            if (sanitized != raw) {
+                fill_opacity_entry.set_text (sanitized.length > 0 ? sanitized : "100");
+                fill_opacity_entry.set_position (fill_opacity_entry.get_text ().length);
+                return;
+            }
+            if (sanitized.length == 0) {
+                fill_opacity_entry.set_text ("100");
+                fill_opacity_entry.set_position (3);
+                return;
+            }
+            int value = int.parse (sanitized);
+            if (value > 100) {
+                fill_opacity_entry.set_text ("100");
+                fill_opacity_entry.set_position (3);
+                return;
+            }
+            element.fill.alpha = (float) (value / 100.0);
             apply_svg_fill_to_element (element);
             canvas.queue_draw ();
         });
 
-        stroke_opacity_spin.value_changed.connect (() => {
+        stroke_opacity_entry.changed.connect (() => {
             if (updating)return;
             var element = owner.get_selected_element ();
             if (element == null)return;
-            element.stroke.alpha = (float) (stroke_opacity_spin.get_value () / 100.0);
+            string raw = stroke_opacity_entry.get_text ();
+            string sanitized = IconiUtils.sanitize_numeric_text (raw, 3u);
+            if (sanitized != raw) {
+                stroke_opacity_entry.set_text (sanitized.length > 0 ? sanitized : "100");
+                stroke_opacity_entry.set_position (stroke_opacity_entry.get_text ().length);
+                return;
+            }
+            if (sanitized.length == 0) {
+                stroke_opacity_entry.set_text ("100");
+                stroke_opacity_entry.set_position (3);
+                return;
+            }
+            int value = int.parse (sanitized);
+            if (value > 100) {
+                stroke_opacity_entry.set_text ("100");
+                stroke_opacity_entry.set_position (3);
+                return;
+            }
+            element.stroke.alpha = (float) (value / 100.0);
             apply_svg_stroke_to_element (element);
             canvas.queue_draw ();
         });
@@ -1022,6 +1137,38 @@ public class Inspector : Object {
             }
         });
 
+        corner_radius_unified_entry.changed.connect (() => {
+            if (updating)return;
+            var element = owner.get_selected_element ();
+            if (element == null)return;
+            if (element.type != ElementType.RECTANGLE)return;
+            string raw = corner_radius_unified_entry.get_text ();
+            string sanitized = IconiUtils.sanitize_numeric_text (raw, 3u);
+            if (sanitized != raw) {
+                corner_radius_unified_entry.set_text (sanitized.length > 0 ? sanitized : "0");
+                corner_radius_unified_entry.set_position (corner_radius_unified_entry.get_text ().length);
+                return;
+            }
+            if (sanitized.length == 0) {
+                corner_radius_unified_entry.set_text ("0");
+                corner_radius_unified_entry.set_position (1);
+                return;
+            }
+            int value = int.parse (sanitized);
+            if (value > 999) {
+                corner_radius_unified_entry.set_text ("999");
+                corner_radius_unified_entry.set_position (3);
+                return;
+            }
+            float radius = (float) value;
+            element.corner_radius_top_left = radius;
+            element.corner_radius_top_right = radius;
+            element.corner_radius_bottom_right = radius;
+            element.corner_radius_bottom_left = radius;
+            apply_corner_radius_constraints (element);
+            canvas.queue_draw ();
+        });
+
         corner_radius_tl_entry.changed.connect (() => {
             handle_corner_radius_entry (CornerHandle.TOP_LEFT, corner_radius_tl_entry);
         });
@@ -1037,6 +1184,7 @@ public class Inspector : Object {
 
         corner_radius_lock_toggle.toggled.connect (() => {
             update_corner_lock_icon ();
+            update_corner_radius_visibility ();
             var element = owner.get_selected_element ();
             if (element != null) {
                 element.corner_radius_locked = corner_radius_lock_toggle.get_active ();
@@ -1045,8 +1193,15 @@ public class Inspector : Object {
             }
         });
 
+        size_lock_toggle.toggled.connect (() => {
+            update_size_lock_icon ();
+        });
+
         align_left_btn.clicked.connect (() => { align_selected_element_horizontal (0); });
-        align_center_btn.clicked.connect (() => { align_selected_element_horizontal (1); });
+        align_center_btn.clicked.connect (() => {
+            align_selected_element_horizontal (1);
+            align_selected_element_vertical (1);
+        });
         align_right_btn.clicked.connect (() => { align_selected_element_horizontal (2); });
         align_top_btn.clicked.connect (() => { align_selected_element_vertical (0); });
         align_bottom_btn.clicked.connect (() => { align_selected_element_vertical (2); });
@@ -1199,8 +1354,8 @@ public class Inspector : Object {
 
     private Gtk.Entry create_corner_entry () {
         var entry = new Gtk.Entry ();
-        entry.set_width_chars (3);
         entry.set_max_length (3);
+        entry.set_max_width_chars (3);
         entry.set_input_purpose (Gtk.InputPurpose.NUMBER);
         entry.set_hexpand (false);
         entry.set_halign (Gtk.Align.CENTER);
@@ -1228,6 +1383,19 @@ public class Inspector : Object {
         return btn;
     }
 
+    private Gtk.Entry create_opacity_entry () {
+        var entry = new Gtk.Entry ();
+        entry.set_max_length (3);
+        entry.set_max_width_chars (3);
+        entry.set_input_purpose (Gtk.InputPurpose.NUMBER);
+        entry.set_hexpand (false);
+        entry.set_halign (Gtk.Align.END);
+        entry.set_valign (Gtk.Align.CENTER);
+        entry.set_alignment (0.5f);
+        entry.set_text ("100");
+        return entry;
+    }
+
     private void set_corner_entry_value (Gtk.Entry entry, double value) {
         double rounded = GLib.Math.round (value);
         double clamped = GLib.Math.fmax (0.0, GLib.Math.fmin (rounded, 999.0));
@@ -1248,6 +1416,28 @@ public class Inspector : Object {
             corner_radius_lock_picture.icon_name = resource;
         }
         corner_radius_lock_toggle.set_tooltip_text (tooltip);
+    }
+
+    private void update_size_lock_icon () {
+        if (size_lock_toggle == null)return;
+        bool locked = size_lock_toggle.get_active ();
+        string resource = locked ? ICON_LOCKED : ICON_UNLOCKED;
+        string tooltip = locked ? "Unlock proportions" : "Lock proportions";
+        if (size_lock_picture != null) {
+            size_lock_picture.icon_name = resource;
+        }
+        size_lock_toggle.set_tooltip_text (tooltip);
+    }
+
+    private void update_corner_radius_visibility () {
+        if (corner_radius_lock_toggle == null)return;
+        bool locked = corner_radius_lock_toggle.get_active ();
+        if (corner_unified_row != null) {
+            corner_unified_row.set_visible (locked);
+        }
+        if (corner_grid != null) {
+            corner_grid.set_visible (!locked);
+        }
     }
 
     private void update_grid_preview_icon () {
@@ -1464,11 +1654,15 @@ public class Inspector : Object {
         set_corner_entry_value (corner_radius_tr_entry, element.corner_radius_top_right);
         set_corner_entry_value (corner_radius_br_entry, element.corner_radius_bottom_right);
         set_corner_entry_value (corner_radius_bl_entry, element.corner_radius_bottom_left);
+        if (corner_radius_unified_entry != null) {
+            set_corner_entry_value (corner_radius_unified_entry, element.corner_radius_top_left);
+        }
         bool prev = updating;
         updating = true;
         corner_radius_lock_toggle.set_active (element.corner_radius_locked);
         updating = prev;
         update_corner_lock_icon ();
+        update_corner_radius_visibility ();
     }
 
     private void handle_corner_radius_entry (CornerHandle handle, Gtk.Entry entry) {

@@ -25,8 +25,8 @@ public class IconMakerWindow : He.ApplicationWindow {
     public IconMakerWindow (IconMakerApplication app) {
         Object (application : app);
         set_title ("Icon Maker");
-        set_default_size (1240, 800);
-        set_size_request (360, 294);
+        set_default_size (1440, 900); // WXGA HD
+        set_size_request (360, 294); // Minimum size to fit sidebar + inspector + canvas
         model = new IconModel ();
         renderer = new IconRenderer (model);
         setup_wallpaper_settings ();
