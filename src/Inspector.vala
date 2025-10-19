@@ -433,7 +433,7 @@ public class Inspector : Object {
         grid_box.append (grid_variant_group);
         grid_pop.set_child (grid_box);
         grid_menu_btn.set_popover (grid_pop);
-        inspector_toolbar_append (grid_menu_btn);
+        inspector_toolbar_append_menu (grid_menu_btn);
 
         zoom_scale = new Gtk.Scale.with_range (Gtk.Orientation.HORIZONTAL, 0.25, 4.0, 0.25);
         zoom_scale.set_value (model.zoom);

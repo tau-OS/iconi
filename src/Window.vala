@@ -320,8 +320,12 @@ public class IconMakerWindow : He.ApplicationWindow {
         name_label.add_controller (name_click);
         name_click.released.connect ((g, n_press, x, y) => {
             name_stack.set_visible_child_name ("entry");
-            name_entry.grab_focus ();
-            name_entry.get_internal_entry ().select_region (0, -1);
+            var entry = name_entry.get_internal_entry ();
+            entry.grab_focus ();
+            GLib.Idle.add (() => {
+                entry.select_region (0, -1);
+                return false;
+            });
         });
         var focus_ctl = new Gtk.EventControllerFocus ();
         name_entry.get_internal_entry ().add_controller (focus_ctl);
@@ -330,6 +334,7 @@ public class IconMakerWindow : He.ApplicationWindow {
             if (new_name.length > 0) {
                 model.name = new_name;
                 name_label.set_text (new_name);
+                sidebar.refresh ();
             }
             name_stack.set_visible_child_name ("label");
         });
@@ -338,6 +343,7 @@ public class IconMakerWindow : He.ApplicationWindow {
             if (new_name.length > 0) {
                 model.name = new_name;
                 name_label.set_text (new_name);
+                sidebar.refresh ();
             }
             name_stack.set_visible_child_name ("label");
         });

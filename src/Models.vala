@@ -49,7 +49,7 @@ public class IconElement : GLib.Object {
         y = 12.0f;
         width = 40.0f;
         height = 40.0f;
-        stroke_width = 0.5f;
+        stroke_width = 0.0f;
         corner_radius_top_left = 0.0f;
         corner_radius_top_right = 0.0f;
         corner_radius_bottom_right = 0.0f;

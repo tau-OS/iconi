@@ -260,10 +260,15 @@ public class IconRenderer : GLib.Object {
         float max_x = cx + preview;
         float max_y = cy + preview;
 
-        for (int blur_pass = 0; blur_pass < 3; blur_pass++) {
+        // box-shadow: 0 2px 3px 0 alpha(#000, 0.25)
+        // 6 passes for smooth 3px blur, total opacity = 0.25
+        int blur_passes = 6;
+        double total_alpha = 0.25;
+        double alpha_per_pass = total_alpha / (double) blur_passes;
+
+        for (int blur_pass = 0; blur_pass < blur_passes; blur_pass++) {
             cr.save ();
-            double blur_spread = blur_pass * 2.0;
-            double blur_alpha = 0.32 / 3.0;
+            double blur_offset = (double) blur_pass * 0.5; // 3px total blur spread
 
             for (int i = 0; i < ne; i++) {
                 var el = (IconElement) group.elements.get_item ((uint) i);
@@ -287,7 +292,7 @@ public class IconRenderer : GLib.Object {
                 }
 
                 cr.save ();
-                cr.translate (0, 4);
+                cr.translate (0, 2); // Y offset: 2px
 
                 if (el.element_angle != 0.0) {
                     double center_x = ex + ew / 2.0;
@@ -298,23 +303,21 @@ public class IconRenderer : GLib.Object {
                 }
 
                 if (el.type == ElementType.RECTANGLE || el.type == ElementType.CIRCLE) {
-                    append_element_path (cr, el, ex, ey, ew, eh, blur_spread);
+                    append_element_path (cr, el, ex, ey, ew, eh, blur_offset);
                 } else if (el.type == ElementType.LINE) {
                     cr.move_to (ex, ey);
                     cr.line_to (ex + ew, ey + eh);
                 }
 
                 if (group.shadow_chromatic) {
-                    double sr = el.fill.red * 0.5;
-                    double sg = el.fill.green * 0.5;
-                    double sb = el.fill.blue * 0.5;
-                    cr.set_source_rgba (sr, sg, sb, blur_alpha);
+                    // Darken the color to 50% to match shadow appearance
+                    cr.set_source_rgba (el.fill.red * 0.5, el.fill.green * 0.5, el.fill.blue * 0.5, alpha_per_pass);
                 } else {
-                    cr.set_source_rgba (0.0, 0.0, 0.0, blur_alpha);
+                    cr.set_source_rgba (0.0, 0.0, 0.0, alpha_per_pass);
                 }
 
                 if (el.type == ElementType.LINE) {
-                    cr.set_line_width (el.stroke_width + blur_spread);
+                    cr.set_line_width (el.stroke_width + blur_offset);
                     cr.stroke ();
                 } else {
                     cr.fill ();
@@ -330,7 +333,13 @@ public class IconRenderer : GLib.Object {
     private bool render_group_shadow_combined (Cairo.Context cr, ElementGroup group, float cx, float cy, float preview) {
         bool any = false;
 
-        for (int blur_pass = 0; blur_pass < 3; blur_pass++) {
+        // box-shadow: 0 2px 3px 0 alpha(#000, 0.25)
+        // 6 passes for smooth 3px blur, total opacity = 0.25
+        int blur_passes = 6;
+        double total_alpha = 0.25;
+        double alpha_per_pass = total_alpha / (double) blur_passes;
+
+        for (int blur_pass = 0; blur_pass < blur_passes; blur_pass++) {
             Cairo.Path? path;
             double min_x;
             double min_y;
@@ -341,9 +350,9 @@ public class IconRenderer : GLib.Object {
             double color_b;
             int color_samples;
 
-            double expand = blur_pass * 2.0;
-            double offset_x = 0.0;
-            double offset_y = 4.0;
+            double expand = (double) blur_pass * 0.5; // 3px total blur spread
+            double offset_x = 0.0; // X offset: 0
+            double offset_y = 2.0; // Y offset: 2px
             bool has_path = build_group_path (cr, group, cx, cy, preview, expand, offset_x, offset_y, out path, out min_x, out min_y, out max_x, out max_y, out color_r, out color_g, out color_b, out color_samples);
             if (!has_path || path == null) {
                 continue;
@@ -354,17 +363,18 @@ public class IconRenderer : GLib.Object {
             }
 
             any = true;
-            double blur_alpha = 0.32 / 3.0;
 
             cr.save ();
             cr.append_path (path);
             if (group.shadow_chromatic && color_samples > 0) {
-                double sr = GLib.Math.fmin ((color_r / (double) color_samples) * 0.5, 1.0);
-                double sg = GLib.Math.fmin ((color_g / (double) color_samples) * 0.5, 1.0);
-                double sb = GLib.Math.fmin ((color_b / (double) color_samples) * 0.5, 1.0);
-                cr.set_source_rgba (sr, sg, sb, blur_alpha);
+                // Average color from all elements
+                double avg_r = color_r / (double) color_samples;
+                double avg_g = color_g / (double) color_samples;
+                double avg_b = color_b / (double) color_samples;
+                // Darken the color to 50% to match shadow appearance
+                cr.set_source_rgba (avg_r * 0.5, avg_g * 0.5, avg_b * 0.5, alpha_per_pass);
             } else {
-                cr.set_source_rgba (0.0, 0.0, 0.0, blur_alpha);
+                cr.set_source_rgba (0.0, 0.0, 0.0, alpha_per_pass);
             }
             cr.fill ();
             cr.restore ();
@@ -417,22 +427,52 @@ public class IconRenderer : GLib.Object {
             double center_y = ey_d + eh_d / 2.0;
 
             cr.save ();
-            if (el.element_angle != 0.0) {
-                cr.translate (center_x, center_y);
-                cr.rotate (el.element_angle * (GLib.Math.PI / 180.0));
-                cr.translate (-center_x, -center_y);
-            }
 
             // Create sheen effect as a 2px stroke with linear gradient from top to bottom
             if (eh_d > 0.0) {
-                var gradient = new Cairo.Pattern.linear (ex_d, ey_d, ex_d, ey_d + eh_d);
+                // Calculate gradient endpoints in rotated space
+                double gradient_start_x = ex_d;
+                double gradient_start_y = ey_d;
+                double gradient_end_x = ex_d;
+                double gradient_end_y = ey_d + eh_d;
+
+                // If rotated, transform the gradient endpoints with negative angle, 90° CCW rotation, and x-axis mirror
+                if (el.element_angle != 0.0) {
+                    double angle_rad = (-el.element_angle + 90.0) * (GLib.Math.PI / 180.0);
+                    double cos_a = GLib.Math.cos (angle_rad);
+                    double sin_a = GLib.Math.sin (angle_rad);
+
+                    // Transform gradient start point around center with x-axis mirror
+                    double dx_start = gradient_start_x - center_x;
+                    double dy_start = gradient_start_y - center_y;
+                    double rotated_start_x = center_x - (dx_start * cos_a - dy_start * sin_a);
+                    double rotated_start_y = center_y + dx_start * sin_a + dy_start * cos_a;
+
+                    // Transform gradient end point around center with x-axis mirror
+                    double dx_end = gradient_end_x - center_x;
+                    double dy_end = gradient_end_y - center_y;
+                    double rotated_end_x = center_x - (dx_end * cos_a - dy_end * sin_a);
+                    double rotated_end_y = center_y + dx_end * sin_a + dy_end * cos_a;
+
+                    gradient_start_x = rotated_start_x;
+                    gradient_start_y = rotated_start_y;
+                    gradient_end_x = rotated_end_x;
+                    gradient_end_y = rotated_end_y;
+
+                    // Apply rotation transform for the path
+                    cr.translate (center_x, center_y);
+                    cr.rotate (el.element_angle * (GLib.Math.PI / 180.0));
+                    cr.translate (-center_x, -center_y);
+                }
+
+                var gradient = new Cairo.Pattern.linear (gradient_start_x, gradient_start_y, gradient_end_x, gradient_end_y);
                 gradient.set_extend (Cairo.Extend.PAD);
                 // Hard stops with transition near the middle
                 gradient.add_color_stop_rgba (0.0, 1.0, 1.0, 1.0, 0.4);
-                gradient.add_color_stop_rgba (0.1, 1.0, 1.0, 1.0, 0.0);
-                gradient.add_color_stop_rgba (0.1, 0.0, 0.0, 0.0, 0.0);
-                gradient.add_color_stop_rgba (0.9, 0.0, 0.0, 0.0, 0.0);
-                gradient.add_color_stop_rgba (0.9, 0.0, 0.0, 0.0, 0.0);
+                gradient.add_color_stop_rgba (0.15, 1.0, 1.0, 1.0, 0.0);
+                gradient.add_color_stop_rgba (0.15, 0.0, 0.0, 0.0, 0.0);
+                gradient.add_color_stop_rgba (0.85, 0.0, 0.0, 0.0, 0.0);
+                gradient.add_color_stop_rgba (0.85, 0.0, 0.0, 0.0, 0.0);
                 gradient.add_color_stop_rgba (1.0, 0.0, 0.0, 0.0, 0.2);
 
                 // Stroke inside the shape by clipping
@@ -447,7 +487,6 @@ public class IconRenderer : GLib.Object {
                 cr.restore ();
             }
 
-            cr.restore ();
             cr.restore ();
         }
         cr.restore ();
@@ -486,10 +525,10 @@ public class IconRenderer : GLib.Object {
             gradient.set_extend (Cairo.Extend.PAD);
             // Hard stops with transition near the middle
             gradient.add_color_stop_rgba (0.0, 1.0, 1.0, 1.0, 0.4);
-            gradient.add_color_stop_rgba (0.1, 1.0, 1.0, 1.0, 0.0);
-            gradient.add_color_stop_rgba (0.1, 0.0, 0.0, 0.0, 0.0);
-            gradient.add_color_stop_rgba (0.9, 0.0, 0.0, 0.0, 0.0);
-            gradient.add_color_stop_rgba (0.9, 0.0, 0.0, 0.0, 0.0);
+            gradient.add_color_stop_rgba (0.15, 1.0, 1.0, 1.0, 0.0);
+            gradient.add_color_stop_rgba (0.15, 0.0, 0.0, 0.0, 0.0);
+            gradient.add_color_stop_rgba (0.85, 0.0, 0.0, 0.0, 0.0);
+            gradient.add_color_stop_rgba (0.85, 0.0, 0.0, 0.0, 0.0);
             gradient.add_color_stop_rgba (1.0, 0.0, 0.0, 0.0, 0.2);
 
             // Create a stroke on only the outer perimeter using morphological operations
@@ -535,7 +574,7 @@ public class IconRenderer : GLib.Object {
                 temp_cr.paint ();
                 temp_cr.restore ();
 
-                eroded_cr.set_operator (Cairo.Operator.DEST_IN);
+                eroded_cr.set_operator (Cairo.Operator.CLEAR);
                 eroded_cr.set_source_surface (temp_surface, 0, 0);
                 eroded_cr.paint ();
             }
@@ -730,17 +769,12 @@ public class IconRenderer : GLib.Object {
             cr.set_operator (Cairo.Operator.OVER);
         }
 
-        if (model.use_frame_overlay) {
-            render_canvas_overlay (cr, frame_handle, preview_ratio, (double) cx, (double) cy);
-        }
-        if (model.show_dev_badge) {
-            render_dev_badge (cr, preview_ratio);
-        }
+        // Raised Effect Overlay (only on top of background)
         if (model.use_raised_effect) {
             render_canvas_overlay (cr, effects_handle, preview_ratio, (double) cx, (double) cy);
         }
 
-        // Render group sheen layers after whole icon effects
+        // Group Effects (rendered on top of background effects)
         for (int g = 0; g < ng; g++) {
             var group = (ElementGroup) model.groups.get_item ((uint) g);
             if (group.use_sheen_layer) {
@@ -748,6 +782,15 @@ public class IconRenderer : GLib.Object {
                 render_group_sheen_layer (cr, group, cx, cy, preview, combined_effect);
             }
         }
+
+        // Toolbox Frame + Dev Badge (always on top, in this order)
+        if (model.use_frame_overlay) {
+            render_canvas_overlay (cr, frame_handle, preview_ratio, (double) cx, (double) cy);
+        }
+        if (model.show_dev_badge) {
+            render_dev_badge (cr, preview_ratio);
+        }
+
         if (model.show_grid_overlay) {
             Rsvg.Handle? grid_handle = model.grid_overlay_variant == GridOverlayVariant.DARK ? grid_dark_handle : grid_light_handle;
             render_grid_overlay (cr, grid_handle, cx, cy, preview);
