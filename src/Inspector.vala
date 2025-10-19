@@ -217,6 +217,7 @@ public class Inspector : Object {
 
                     size_box.set_visible (!is_line);
                     line_controls_box.set_visible (is_line);
+                    element_angle_box.set_visible (!is_line);
                     corner_box.set_visible (element.type == ElementType.RECTANGLE);
                     if (element.type == ElementType.RECTANGLE) {
                         apply_corner_radius_constraints (element);
@@ -246,6 +247,11 @@ public class Inspector : Object {
         } finally {
             updating = false;
         }
+    }
+
+    private void redraw () {
+        canvas.queue_draw ();
+        owner.refresh_sidebar ();
     }
 
     private void build_ui () {
@@ -719,7 +725,7 @@ public class Inspector : Object {
         line_controls_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
         line_controls_box.add_css_class ("mini-content-block");
         line_length_spin = new Gtk.SpinButton.with_range (1, 155, 1);
-        line_angle_spin = new Gtk.SpinButton.with_range (0, 324, 1);
+        line_angle_spin = new Gtk.SpinButton.with_range (0, 359, 1);
         var line_length_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
         var line_length_label = new Gtk.Label ("Length") { xalign = 0.0f, hexpand = true };
         line_length_label.add_css_class ("caption");
@@ -737,7 +743,7 @@ public class Inspector : Object {
 
         element_angle_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
         element_angle_box.add_css_class ("mini-content-block");
-        element_angle_spin = new Gtk.SpinButton.with_range (0, 324, 1);
+        element_angle_spin = new Gtk.SpinButton.with_range (0, 359, 1);
         var rotation_label = new Gtk.Label ("Rotation") { xalign = 0.0f, hexpand = true };
         rotation_label.add_css_class ("caption");
         element_angle_box.append (rotation_label);
@@ -929,7 +935,7 @@ public class Inspector : Object {
             if (element == null)return;
             double bounded_x = GLib.Math.fmax (0.0, GLib.Math.fmin (x_entry.get_value (), 109.0));
             element.x = (float) bounded_x;
-            canvas.queue_draw ();
+            redraw ();
         });
 
         y_entry.value_changed.connect (() => {
@@ -938,7 +944,7 @@ public class Inspector : Object {
             if (element == null)return;
             double bounded_y = GLib.Math.fmax (0.0, GLib.Math.fmin (y_entry.get_value (), 109.0));
             element.y = (float) bounded_y;
-            canvas.queue_draw ();
+            redraw ();
         });
 
         w_entry.value_changed.connect (() => {
@@ -960,7 +966,7 @@ public class Inspector : Object {
 
             element.width = (float) bounded_w;
             apply_corner_radius_constraints (element);
-            canvas.queue_draw ();
+            redraw ();
         });
 
         h_entry.value_changed.connect (() => {
@@ -982,7 +988,7 @@ public class Inspector : Object {
 
             element.height = (float) bounded_h;
             apply_corner_radius_constraints (element);
-            canvas.queue_draw ();
+            redraw ();
         });
 
         stroke_width_spin.value_changed.connect (() => {
@@ -991,7 +997,7 @@ public class Inspector : Object {
             if (element == null)return;
             element.stroke_width = (float) stroke_width_spin.get_value ();
             apply_svg_stroke_width_to_element (element);
-            canvas.queue_draw ();
+            redraw ();
         });
 
         line_length_spin.value_changed.connect (() => {
@@ -1002,7 +1008,7 @@ public class Inspector : Object {
             float value = (float) GLib.Math.fmax (line_length_spin.get_value (), 1.0);
             element.line_length = value;
             refresh_line_deltas (element);
-            canvas.queue_draw ();
+            redraw ();
         });
 
         line_angle_spin.value_changed.connect (() => {
@@ -1012,7 +1018,7 @@ public class Inspector : Object {
             if (element.type != ElementType.LINE)return;
             element.line_angle = line_angle_spin.get_value ();
             refresh_line_deltas (element);
-            canvas.queue_draw ();
+            redraw ();
         });
 
         element_angle_spin.value_changed.connect (() => {
@@ -1020,7 +1026,7 @@ public class Inspector : Object {
             var element = owner.get_selected_element ();
             if (element == null)return;
             element.element_angle = element_angle_spin.get_value ();
-            canvas.queue_draw ();
+            redraw ();
         });
 
         fill_btn.clicked.connect (() => {
@@ -1034,7 +1040,7 @@ public class Inspector : Object {
                 if (element.use_gradient) {
                     fill_gradient_btn.set_data<Gdk.RGBA?> ("current_color", element.gradient_secondary);
                 }
-                canvas.queue_draw ();
+                redraw ();
             });
         });
 
@@ -1046,7 +1052,7 @@ public class Inspector : Object {
                 element.stroke = color;
                 update_color_button (stroke_btn, color);
                 apply_svg_stroke_to_element (element);
-                canvas.queue_draw ();
+                redraw ();
             });
         });
 
@@ -1074,7 +1080,7 @@ public class Inspector : Object {
             }
             element.fill.alpha = (float) (value / 100.0);
             apply_svg_fill_to_element (element);
-            canvas.queue_draw ();
+            redraw ();
         });
 
         stroke_opacity_entry.changed.connect (() => {
@@ -1101,7 +1107,7 @@ public class Inspector : Object {
             }
             element.stroke.alpha = (float) (value / 100.0);
             apply_svg_stroke_to_element (element);
-            canvas.queue_draw ();
+            redraw ();
         });
 
         fill_mode_drop.notify["selected"].connect (() => {
@@ -1111,7 +1117,7 @@ public class Inspector : Object {
             element.use_gradient = (fill_mode_drop.get_selected () == 1u);
             fill_gradient_color_row.set_visible (element.use_gradient);
             fill_gradient_angle_row.set_visible (element.use_gradient);
-            canvas.queue_draw ();
+            redraw ();
         });
 
         fill_gradient_btn.clicked.connect (() => {
@@ -1122,7 +1128,7 @@ public class Inspector : Object {
                 element.gradient_secondary = color;
                 if (element.use_gradient) {
                     update_color_button (fill_gradient_btn, color);
-                    canvas.queue_draw ();
+                    redraw ();
                 }
             });
         });
@@ -1133,7 +1139,7 @@ public class Inspector : Object {
             if (element == null)return;
             element.gradient_angle = fill_gradient_angle_spin.get_value ();
             if (element.use_gradient) {
-                canvas.queue_draw ();
+                redraw ();
             }
         });
 
@@ -1166,7 +1172,7 @@ public class Inspector : Object {
             element.corner_radius_bottom_right = radius;
             element.corner_radius_bottom_left = radius;
             apply_corner_radius_constraints (element);
-            canvas.queue_draw ();
+            redraw ();
         });
 
         corner_radius_tl_entry.changed.connect (() => {
@@ -1329,8 +1335,8 @@ public class Inspector : Object {
     }
 
     private Gtk.Button create_color_button (Gdk.RGBA initial_color) {
-        var btn = new Gtk.Button ();
-        btn.set_size_request (48, 32);
+        var btn = new He.Button ("", "");
+        btn.add_css_class ("flat");
         btn.set_tooltip_text ("Click to choose color");
         var area = new Gtk.DrawingArea ();
         area.set_content_width (48);
@@ -1711,7 +1717,7 @@ public class Inspector : Object {
             }
         }
         apply_corner_radius_constraints (element);
-        canvas.queue_draw ();
+        redraw ();
     }
 
     private void apply_corner_radius_constraints (IconElement element) {
@@ -1783,7 +1789,7 @@ public class Inspector : Object {
             element.x = IconiUtils.clampf ((float) target, 0.0f, (float) canvas_size);
         }
         update_position_entries (element);
-        canvas.queue_draw ();
+        redraw ();
     }
 
     private void align_selected_element_vertical (int mode) {
@@ -1821,7 +1827,7 @@ public class Inspector : Object {
             element.y = IconiUtils.clampf ((float) target, 0.0f, (float) canvas_size);
         }
         update_position_entries (element);
-        canvas.queue_draw ();
+        redraw ();
     }
 
     private void apply_svg_fill_to_element (IconElement element) {

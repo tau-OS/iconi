@@ -154,6 +154,10 @@ public class IconMakerWindow : He.ApplicationWindow {
         canvas.queue_draw ();
     }
 
+    public void refresh_sidebar () {
+        sidebar.refresh ();
+    }
+
     public void apply_view_background_css () {
         if (center_box == null)return;
         if (view_bg_css == null) {

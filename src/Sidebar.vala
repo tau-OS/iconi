@@ -5,6 +5,7 @@ public class Sidebar : Object {
     private Gtk.ListBox listbox;
     private Gtk.Popover add_pop;
     private Gtk.ToggleButton reorder_toggle;
+    private bool refreshing = false;
 
     public Sidebar (IconMakerWindow owner, IconModel model) {
         this.owner = owner;
@@ -77,6 +78,7 @@ public class Sidebar : Object {
 
     public void refresh () {
         if (listbox == null)return;
+        refreshing = true;
         while (true) {
             var existing = listbox.get_row_at_index (0);
             if (existing == null)break;
@@ -145,6 +147,7 @@ public class Sidebar : Object {
                 var mini_canvas = new Gtk.DrawingArea ();
                 mini_canvas.set_content_width (32);
                 mini_canvas.set_content_height (32);
+                mini_canvas.set_valign (Gtk.Align.CENTER);
                 mini_canvas.set_draw_func ((da, cr, w, h) => {
                     render_mini_element (cr, element, 32);
                 });
@@ -195,6 +198,7 @@ public class Sidebar : Object {
         }
 
         sync_selection ();
+        refreshing = false;
     }
 
     public void sync_selection () {
@@ -414,6 +418,7 @@ public class Sidebar : Object {
     }
 
     private void handle_row_selected (Gtk.ListBoxRow? row) {
+        if (refreshing)return;
         if (row == null) {
             model.background_selected = false;
             model.group_selected = false;
@@ -478,7 +483,7 @@ public class Sidebar : Object {
 
     private void render_mini_element (Cairo.Context cr, IconElement element, int size) {
         cr.new_path ();
-        IconiUtils.append_rounded_rect (cr, 0.0, 0.0, (double) size, (double) size, 2.0, 2.0, 2.0, 2.0);
+        IconiUtils.append_rounded_rect (cr, 0.0, 0.0, (double) size, (double) size, 4.0, 4.0, 4.0, 4.0);
         cr.clip ();
 
         int checker_size = 4;
