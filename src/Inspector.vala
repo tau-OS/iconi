@@ -296,6 +296,52 @@ public class Inspector : Object {
     }
 
     private void build_background_section () {
+        // Compositing section
+        var compositing_heading = new Gtk.Label ("Compositing") { xalign = 0.0f };
+        compositing_heading.add_css_class ("caption-heading");
+        bg_props_area.append (compositing_heading);
+
+        bg_effects_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+        bg_effects_row.add_css_class ("mini-content-block");
+        var effects_label = new Gtk.Label ("Raised Effect");
+        effects_label.set_xalign (0.0f);
+        effects_label.set_hexpand (true);
+        effects_label.add_css_class ("caption");
+        bg_effects_row.append (effects_label);
+        bg_effects_switch = new Gtk.Switch ();
+        bg_effects_switch.set_active (model.use_raised_effect);
+        bg_effects_row.append (bg_effects_switch);
+        bg_props_area.append (bg_effects_row);
+
+        bg_frame_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+        bg_frame_row.add_css_class ("mini-content-block");
+        var frame_label = new Gtk.Label ("Toolbox App Frame");
+        frame_label.set_xalign (0.0f);
+        frame_label.set_hexpand (true);
+        frame_label.add_css_class ("caption");
+        bg_frame_row.append (frame_label);
+        bg_frame_switch = new Gtk.Switch ();
+        bg_frame_switch.set_active (model.use_frame_overlay);
+        bg_frame_row.append (bg_frame_switch);
+        bg_props_area.append (bg_frame_row);
+
+        bg_dev_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+        bg_dev_row.add_css_class ("mini-content-block");
+        var dev_label = new Gtk.Label ("Developer Badge");
+        dev_label.set_xalign (0.0f);
+        dev_label.set_hexpand (true);
+        dev_label.add_css_class ("caption");
+        bg_dev_row.append (dev_label);
+        bg_dev_switch = new Gtk.Switch ();
+        bg_dev_switch.set_active (model.show_dev_badge);
+        bg_dev_row.append (bg_dev_switch);
+        bg_props_area.append (bg_dev_row);
+
+        // Color section
+        var color_heading = new Gtk.Label ("Color") { xalign = 0.0f, margin_top = 18 };
+        color_heading.add_css_class ("caption-heading");
+        bg_props_area.append (color_heading);
+
         bg_variant_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
         bg_variant_row.add_css_class ("mini-content-block");
         var bg_variant_label = new Gtk.Label ("Background Preset");
@@ -355,42 +401,6 @@ public class Inspector : Object {
         gradient_angle_row.append (bg_gradient_angle_spin);
         bg_gradient_container.append (gradient_angle_row);
         bg_props_area.append (bg_gradient_container);
-
-        bg_effects_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
-        bg_effects_row.add_css_class ("mini-content-block");
-        var effects_label = new Gtk.Label ("Raised Effect");
-        effects_label.set_xalign (0.0f);
-        effects_label.set_hexpand (true);
-        effects_label.add_css_class ("caption");
-        bg_effects_row.append (effects_label);
-        bg_effects_switch = new Gtk.Switch ();
-        bg_effects_switch.set_active (model.use_raised_effect);
-        bg_effects_row.append (bg_effects_switch);
-        bg_props_area.append (bg_effects_row);
-
-        bg_frame_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
-        bg_frame_row.add_css_class ("mini-content-block");
-        var frame_label = new Gtk.Label ("Toolbox App Frame");
-        frame_label.set_xalign (0.0f);
-        frame_label.set_hexpand (true);
-        frame_label.add_css_class ("caption");
-        bg_frame_row.append (frame_label);
-        bg_frame_switch = new Gtk.Switch ();
-        bg_frame_switch.set_active (model.use_frame_overlay);
-        bg_frame_row.append (bg_frame_switch);
-        bg_props_area.append (bg_frame_row);
-
-        bg_dev_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
-        bg_dev_row.add_css_class ("mini-content-block");
-        var dev_label = new Gtk.Label ("Developer Badge");
-        dev_label.set_xalign (0.0f);
-        dev_label.set_hexpand (true);
-        dev_label.add_css_class ("caption");
-        bg_dev_row.append (dev_label);
-        bg_dev_switch = new Gtk.Switch ();
-        bg_dev_switch.set_active (model.show_dev_badge);
-        bg_dev_row.append (bg_dev_switch);
-        bg_props_area.append (bg_dev_row);
 
         var grid_menu_btn = new Gtk.MenuButton ();
         grid_preview_picture = new Gtk.Image ();
@@ -480,6 +490,11 @@ public class Inspector : Object {
     }
 
     private void build_group_section () {
+        // Compositing section
+        var compositing_heading = new Gtk.Label ("Compositing") { xalign = 0.0f };
+        compositing_heading.add_css_class ("caption-heading");
+        group_props_area.append (compositing_heading);
+
         group_blend_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
         group_blend_box.add_css_class ("mini-content-block");
         var group_blend_label = new Gtk.Label ("Blend Mode") { xalign = 0.0f, hexpand = true };
@@ -488,6 +503,11 @@ public class Inspector : Object {
         group_blend_drop = new Gtk.DropDown.from_strings (blend_labels);
         group_blend_box.append (group_blend_drop);
         group_props_area.append (group_blend_box);
+
+        // Effects section
+        var effects_heading = new Gtk.Label ("Effects") { xalign = 0.0f, margin_top = 18 };
+        effects_heading.add_css_class ("caption-heading");
+        group_props_area.append (effects_heading);
 
         var group_sheen_layer_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
         group_sheen_layer_box.add_css_class ("mini-content-block");
@@ -529,6 +549,11 @@ public class Inspector : Object {
     }
 
     private void build_element_section () {
+        // Compositing section
+        var compositing_heading = new Gtk.Label ("Compositing") { xalign = 0.0f };
+        compositing_heading.add_css_class ("caption-heading");
+        props_area.append (compositing_heading);
+
         pos_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
         pos_box.add_css_class ("mini-content-block");
         x_entry = new Gtk.SpinButton.with_range (0, 109, 1);
@@ -656,6 +681,11 @@ public class Inspector : Object {
         element_angle_box.append (rotation_label);
         element_angle_box.append (element_angle_spin);
         props_area.append (element_angle_box);
+
+        // Color section
+        var color_heading = new Gtk.Label ("Color") { xalign = 0.0f, margin_top = 18 };
+        color_heading.add_css_class ("caption-heading");
+        props_area.append (color_heading);
 
         fill_box = new Gtk.Box (Gtk.Orientation.VERTICAL, 6);
         fill_box.add_css_class ("mini-content-block");
