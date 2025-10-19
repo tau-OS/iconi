@@ -1050,6 +1050,8 @@ public class Inspector : Object {
             show_color_picker_popover (fill_btn, current, (color) => {
                 var element = owner.get_selected_element ();
                 if (element == null)return;
+                float existing_alpha = element.fill.alpha;
+                color.alpha = existing_alpha;
                 element.fill = color;
                 update_color_button (fill_btn, color);
                 apply_svg_fill_to_element (element);
@@ -1065,6 +1067,8 @@ public class Inspector : Object {
             show_color_picker_popover (stroke_btn, current, (color) => {
                 var element = owner.get_selected_element ();
                 if (element == null)return;
+                float existing_alpha = element.stroke.alpha;
+                color.alpha = existing_alpha;
                 element.stroke = color;
                 update_color_button (stroke_btn, color);
                 apply_svg_stroke_to_element (element);
