@@ -469,11 +469,6 @@ public class Inspector : Object {
         set_grid_initial_state ();
     }
 
-    private void inspector_toolbar_append (Gtk.Widget widget) {
-        if (main_appbar == null)return;
-        main_appbar.append (widget);
-    }
-
     private void inspector_toolbar_append_menu (Gtk.Widget widget) {
         if (main_appbar == null)return;
         main_appbar.append_menu (widget);
@@ -955,6 +950,7 @@ public class Inspector : Object {
                 var element = owner.get_selected_element ();
                 if (element == null)return;
                 element.fill = color;
+                update_color_button (fill_btn, color);
                 apply_svg_fill_to_element (element);
                 if (element.use_gradient) {
                     fill_gradient_btn.set_data<Gdk.RGBA?> ("current_color", element.gradient_secondary);
@@ -969,6 +965,7 @@ public class Inspector : Object {
                 var element = owner.get_selected_element ();
                 if (element == null)return;
                 element.stroke = color;
+                update_color_button (stroke_btn, color);
                 apply_svg_stroke_to_element (element);
                 canvas.queue_draw ();
             });
@@ -1317,6 +1314,27 @@ public class Inspector : Object {
 
         Gdk.RGBA selected_color = current_color;
 
+        var hex_entry = new Gtk.Entry ();
+        hex_entry.set_hexpand (true);
+        hex_entry.set_max_length (7);
+        hex_entry.set_placeholder_text ("#RRGGBB");
+        hex_entry.set_text (IconiUtils.rgba_to_hex (current_color));
+        hex_entry.add_css_class ("caption");
+
+        hex_entry.changed.connect (() => {
+            string text = hex_entry.get_text ().strip ();
+            if (text.length == 0)return;
+            if (!text.has_prefix ("#")) {
+                text = "#" + text;
+            }
+            Gdk.RGBA test_color = { 0 };
+            if (test_color.parse (text)) {
+                selected_color = test_color;
+                callback (selected_color);
+                update_color_button (parent as Gtk.Button, selected_color);
+            }
+        });
+
         for (int row = 0; row < ramp_count; row++) {
             Gdk.RGBA base_color = IconiUtils.parse_hex_color (ramp_hex[row]);
             for (int col = 0; col < shade_count; col++) {
@@ -1355,7 +1373,8 @@ public class Inspector : Object {
                 swatch_btn.clicked.connect (() => {
                     selected_color = copy;
                     callback (selected_color);
-                    popover.popdown ();
+                    update_color_button (parent as Gtk.Button, selected_color);
+                    hex_entry.set_text (IconiUtils.rgba_to_hex (copy));
                 });
                 grid.attach (swatch_btn, col, row, 1, 1);
             }
@@ -1395,16 +1414,28 @@ public class Inspector : Object {
             neutral_btn.clicked.connect (() => {
                 selected_color = copy;
                 callback (selected_color);
-                popover.popdown ();
+                update_color_button (parent as Gtk.Button, selected_color);
+                hex_entry.set_text (IconiUtils.rgba_to_hex (copy));
             });
             neutral_box.append (neutral_btn);
         }
 
+        var custom_hex_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+        custom_hex_box.set_margin_top (8);
+        content_box.append (custom_hex_box);
+
+        var hex_label = new Gtk.Label ("Hex:");
+        hex_label.set_xalign (0.0f);
+        hex_label.add_css_class ("caption");
+        custom_hex_box.append (hex_label);
+        custom_hex_box.append (hex_entry);
+
         var button_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
         button_box.set_halign (Gtk.Align.END);
+        button_box.set_margin_top (6);
         content_box.append (button_box);
 
-        var cancel_btn = new Gtk.Button.with_label ("Cancel");
+        var cancel_btn = new Gtk.Button.with_label ("Close");
         cancel_btn.clicked.connect (() => {
             popover.popdown ();
         });
