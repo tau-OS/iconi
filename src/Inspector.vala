@@ -67,6 +67,7 @@ public class Inspector : Object {
     private Gtk.DropDown fill_mode_drop;
     private Gtk.Box fill_mode_row;
     private Gtk.Button fill_gradient_btn;
+    private Gtk.Entry fill_gradient_opacity_entry;
     private Gtk.SpinButton fill_gradient_angle_spin;
     private Gtk.Box fill_gradient_color_row;
     private Gtk.Box fill_gradient_angle_row;
@@ -247,6 +248,8 @@ public class Inspector : Object {
                     if (show_gradient) {
                         fill_mode_drop.set_selected (element.use_gradient ? 1u : 0u);
                         update_color_button (fill_gradient_btn, element.gradient_secondary);
+                        int gradient_opacity_value = (int) GLib.Math.round ((float) element.gradient_secondary.alpha * 100.0f);
+                        fill_gradient_opacity_entry.set_text (gradient_opacity_value.to_string ());
                         fill_gradient_angle_spin.set_value (element.gradient_angle);
                         fill_gradient_color_row.set_visible (element.use_gradient);
                         fill_gradient_angle_row.set_visible (element.use_gradient);
@@ -797,6 +800,8 @@ public class Inspector : Object {
         fill_box.append (fill_mode_row);
 
         fill_gradient_btn = create_color_button ({ 0.533f, 0.533f, 0.533f, 1.0f });
+        fill_gradient_opacity_entry = create_opacity_entry ();
+        fill_gradient_opacity_entry.set_tooltip_text ("Gradient end opacity (0-100)");
         fill_gradient_angle_label = new Gtk.Label ("Gradient End");
         fill_gradient_angle_label.set_xalign (0.0f);
         fill_gradient_angle_label.set_hexpand (true);
@@ -804,6 +809,7 @@ public class Inspector : Object {
         fill_gradient_color_row = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
         fill_gradient_color_row.append (fill_gradient_angle_label);
         fill_gradient_color_row.append (fill_gradient_btn);
+        fill_gradient_color_row.append (fill_gradient_opacity_entry);
         fill_gradient_color_row.set_visible (false);
         fill_box.append (fill_gradient_color_row);
 
@@ -1145,12 +1151,40 @@ public class Inspector : Object {
             show_color_picker_popover (fill_gradient_btn, current, (color) => {
                 var element = owner.get_selected_element ();
                 if (element == null)return;
+                float existing_alpha = element.gradient_secondary.alpha;
+                color.alpha = existing_alpha;
                 element.gradient_secondary = color;
                 if (element.use_gradient) {
                     update_color_button (fill_gradient_btn, color);
                     redraw ();
                 }
             });
+        });
+
+        fill_gradient_opacity_entry.changed.connect (() => {
+            if (updating)return;
+            var element = owner.get_selected_element ();
+            if (element == null)return;
+            string raw = fill_gradient_opacity_entry.get_text ();
+            string sanitized = IconiUtils.sanitize_numeric_text (raw, 3u);
+            if (sanitized != raw) {
+                fill_gradient_opacity_entry.set_text (sanitized.length > 0 ? sanitized : "100");
+                fill_gradient_opacity_entry.set_position (fill_gradient_opacity_entry.get_text ().length);
+                return;
+            }
+            if (sanitized.length == 0) {
+                fill_gradient_opacity_entry.set_text ("100");
+                fill_gradient_opacity_entry.set_position (3);
+                return;
+            }
+            int value = int.parse (sanitized);
+            if (value > 100) {
+                fill_gradient_opacity_entry.set_text ("100");
+                fill_gradient_opacity_entry.set_position (3);
+                return;
+            }
+            element.gradient_secondary.alpha = (float) (value / 100.0);
+            redraw ();
         });
 
         fill_gradient_angle_spin.value_changed.connect (() => {
