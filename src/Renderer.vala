@@ -233,13 +233,13 @@ public class IconRenderer : GLib.Object {
             has_path = true;
         }
 
-        Cairo.Path? result = null;
         if (has_path) {
-            result = cr.copy_path ();
+            path = cr.copy_path ();
+        } else {
+            path = null;
         }
         cr.restore ();
 
-        path = cr.copy_path ();
         return has_path;
     }
 
@@ -423,30 +423,23 @@ public class IconRenderer : GLib.Object {
                 cr.translate (-center_x, -center_y);
             }
 
-            cr.save ();
-            append_element_path (cr, el, ex_d, ey_d, ew_d, eh_d);
-            cr.clip ();
+            // Create raised effect as a 2px stroke with linear gradient from top to bottom
+            if (eh_d > 0.0) {
+                double white_end = 4.0 / eh_d;
+                double black_start = 1.0 - (4.0 / eh_d);
 
-            double highlight_span = GLib.Math.fmin (2.0, eh_d);
-            if (highlight_span > 0.0) {
-                var highlight_pattern = new Cairo.Pattern.linear (ex_d, ey_d, ex_d, ey_d + highlight_span);
-                highlight_pattern.add_color_stop_rgba (0.0, 1.0, 1.0, 1.0, 0.35);
-                highlight_pattern.add_color_stop_rgba (1.0, 1.0, 1.0, 1.0, 0.0);
-                cr.set_source (highlight_pattern);
-                append_element_path (cr, el, ex_d, ey_d, ew_d, eh_d);
-                cr.fill ();
-            }
+                var gradient = new Cairo.Pattern.linear (ex_d, ey_d, ex_d, ey_d + eh_d);
+                gradient.set_extend (Cairo.Extend.PAD);
+                gradient.add_color_stop_rgba (0.0, 1.0, 1.0, 1.0, 0.4);
+                gradient.add_color_stop_rgba (white_end, 1.0, 1.0, 1.0, 0.4);
+                gradient.add_color_stop_rgba (0.5, 0.0, 0.0, 0.0, 0.0);
+                gradient.add_color_stop_rgba (black_start, 0.0, 0.0, 0.0, 0.2);
+                gradient.add_color_stop_rgba (1.0, 0.0, 0.0, 0.0, 0.2);
 
-            double shadow_span = GLib.Math.fmin (2.0, eh_d);
-            if (shadow_span > 0.0) {
-                double shadow_start = (ey_d + eh_d) - shadow_span;
-                double shadow_end = shadow_start + shadow_span;
-                var shadow_pattern = new Cairo.Pattern.linear (ex_d, shadow_start, ex_d, shadow_end);
-                shadow_pattern.add_color_stop_rgba (0.0, 0.0, 0.0, 0.0, 0.0);
-                shadow_pattern.add_color_stop_rgba (1.0, 0.0, 0.0, 0.0, 0.25);
-                cr.set_source (shadow_pattern);
+                cr.set_source (gradient);
                 append_element_path (cr, el, ex_d, ey_d, ew_d, eh_d);
-                cr.fill ();
+                cr.set_line_width (2.0);
+                cr.stroke ();
             }
 
             cr.restore ();
@@ -480,30 +473,25 @@ public class IconRenderer : GLib.Object {
             return false;
         }
 
-        double highlight_span = GLib.Math.fmin (2.0, height);
-        double shadow_span = GLib.Math.fmin (2.0, height);
-
+        // Create raised effect as a 2px stroke with linear gradient from top to bottom
         cr.save ();
-        cr.append_path (path);
-        cr.clip ();
 
-        if (highlight_span > 0.0) {
-            var highlight_pattern = new Cairo.Pattern.linear (min_x, min_y, min_x, min_y + highlight_span);
-            highlight_pattern.add_color_stop_rgba (0.0, 1.0, 1.0, 1.0, 0.35);
-            highlight_pattern.add_color_stop_rgba (1.0, 1.0, 1.0, 1.0, 0.0);
-            cr.set_source (highlight_pattern);
-            cr.rectangle (min_x, min_y, width, highlight_span);
-            cr.fill ();
-        }
+        if (height > 0.0) {
+            double white_end = 4.0 / height;
+            double black_start = 1.0 - (4.0 / height);
 
-        if (shadow_span > 0.0) {
-            double shadow_start = max_y - shadow_span;
-            var shadow_pattern = new Cairo.Pattern.linear (min_x, shadow_start, min_x, max_y);
-            shadow_pattern.add_color_stop_rgba (0.0, 0.0, 0.0, 0.0, 0.0);
-            shadow_pattern.add_color_stop_rgba (1.0, 0.0, 0.0, 0.0, 0.25);
-            cr.set_source (shadow_pattern);
-            cr.rectangle (min_x, shadow_start, width, shadow_span);
-            cr.fill ();
+            var gradient = new Cairo.Pattern.linear (min_x, min_y, min_x, max_y);
+            gradient.set_extend (Cairo.Extend.PAD);
+            gradient.add_color_stop_rgba (0.0, 1.0, 1.0, 1.0, 0.4);
+            gradient.add_color_stop_rgba (white_end, 1.0, 1.0, 1.0, 0.4);
+            gradient.add_color_stop_rgba (0.5, 0.0, 0.0, 0.0, 0.0);
+            gradient.add_color_stop_rgba (black_start, 0.0, 0.0, 0.0, 0.2);
+            gradient.add_color_stop_rgba (1.0, 0.0, 0.0, 0.0, 0.2);
+
+            cr.set_source (gradient);
+            cr.append_path (path);
+            cr.set_line_width (2.0);
+            cr.stroke ();
         }
 
         cr.restore ();
