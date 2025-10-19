@@ -217,7 +217,11 @@ public class Inspector : Object {
 
                     size_box.set_visible (!is_line);
                     line_controls_box.set_visible (is_line);
-                    element_angle_box.set_visible (!is_line);
+
+                    bool is_circle = (element.type == ElementType.CIRCLE);
+                    bool circle_same_dimensions = is_circle && (size_lock_toggle.get_active () || GLib.Math.fabs (element.width - element.height) < 0.01);
+                    element_angle_box.set_visible (!is_line && !circle_same_dimensions);
+
                     corner_box.set_visible (element.type == ElementType.RECTANGLE);
                     if (element.type == ElementType.RECTANGLE) {
                         apply_corner_radius_constraints (element);
@@ -966,6 +970,7 @@ public class Inspector : Object {
 
             element.width = (float) bounded_w;
             apply_corner_radius_constraints (element);
+            update_rotation_visibility ();
             redraw ();
         });
 
@@ -988,6 +993,7 @@ public class Inspector : Object {
 
             element.height = (float) bounded_h;
             apply_corner_radius_constraints (element);
+            update_rotation_visibility ();
             redraw ();
         });
 
@@ -1201,6 +1207,7 @@ public class Inspector : Object {
 
         size_lock_toggle.toggled.connect (() => {
             update_size_lock_icon ();
+            update_rotation_visibility ();
         });
 
         align_left_btn.clicked.connect (() => { align_selected_element_horizontal (0); });
@@ -1444,6 +1451,18 @@ public class Inspector : Object {
         if (corner_grid != null) {
             corner_grid.set_visible (!locked);
         }
+    }
+
+    private void update_rotation_visibility () {
+        if (element_angle_box == null)return;
+        var element = owner.get_selected_element ();
+        if (element == null)return;
+
+        bool is_line = (element.type == ElementType.LINE);
+        bool is_circle = (element.type == ElementType.CIRCLE);
+        bool circle_same_dimensions = is_circle && (size_lock_toggle.get_active () || GLib.Math.fabs (element.width - element.height) < 0.01);
+
+        element_angle_box.set_visible (!is_line && !circle_same_dimensions);
     }
 
     private void update_grid_preview_icon () {
