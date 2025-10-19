@@ -76,7 +76,7 @@ public class ElementGroup : GLib.Object {
     public string name;
     public GLib.ListStore elements;
     public string blend_mode;
-    public bool use_raised_effect;
+    public bool use_sheen_layer;
     public bool use_shadow;
     public bool shadow_chromatic;
     public GroupEffectScope effect_scope;
@@ -85,7 +85,7 @@ public class ElementGroup : GLib.Object {
         name = group_name;
         elements = new GLib.ListStore (typeof (IconElement));
         blend_mode = "normal";
-        use_raised_effect = false;
+        use_sheen_layer = false;
         use_shadow = false;
         shadow_chromatic = false;
         effect_scope = GroupEffectScope.INDIVIDUAL;

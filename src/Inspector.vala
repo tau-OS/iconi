@@ -95,7 +95,7 @@ public class Inspector : Object {
 
     private Gtk.Box group_blend_box;
     private Gtk.DropDown group_blend_drop;
-    private Gtk.Switch group_raised_toggle;
+    private Gtk.Switch group_sheen_layer_toggle;
     private Gtk.Switch group_shadow_toggle;
     private Gtk.DropDown group_shadow_mode_drop;
     private Gtk.DropDown group_effect_scope_drop;
@@ -188,7 +188,7 @@ public class Inspector : Object {
                         }
                     }
                     group_blend_drop.set_selected ((uint) blend_index);
-                    group_raised_toggle.set_active (group.use_raised_effect);
+                    group_sheen_layer_toggle.set_active (group.use_sheen_layer);
                     group_shadow_toggle.set_active (group.use_shadow);
                     group_shadow_mode_drop.set_selected (group.shadow_chromatic ? 1u : 0u);
                     group_effect_scope_drop.set_selected (group.effect_scope == GroupEffectScope.COMBINED ? 1u : 0u);
@@ -489,15 +489,15 @@ public class Inspector : Object {
         group_blend_box.append (group_blend_drop);
         group_props_area.append (group_blend_box);
 
-        var group_raised_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
-        group_raised_box.add_css_class ("mini-content-block");
-        var group_raised_label = new Gtk.Label ("Raised Effect") { xalign = 0.0f, hexpand = true };
-        group_raised_label.add_css_class ("caption");
-        group_raised_box.append (group_raised_label);
-        group_raised_toggle = new Gtk.Switch ();
-        group_raised_toggle.set_valign (Gtk.Align.CENTER);
-        group_raised_box.append (group_raised_toggle);
-        group_props_area.append (group_raised_box);
+        var group_sheen_layer_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
+        group_sheen_layer_box.add_css_class ("mini-content-block");
+        var group_sheen_layer_label = new Gtk.Label ("Sheen Layer") { xalign = 0.0f, hexpand = true };
+        group_sheen_layer_label.add_css_class ("caption");
+        group_sheen_layer_box.append (group_sheen_layer_label);
+        group_sheen_layer_toggle = new Gtk.Switch ();
+        group_sheen_layer_toggle.set_valign (Gtk.Align.CENTER);
+        group_sheen_layer_box.append (group_sheen_layer_toggle);
+        group_props_area.append (group_sheen_layer_box);
 
         var group_shadow_box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 6);
         group_shadow_box.add_css_class ("mini-content-block");
@@ -1032,11 +1032,11 @@ public class Inspector : Object {
             canvas.queue_draw ();
         });
 
-        group_raised_toggle.notify["active"].connect (() => {
+        group_sheen_layer_toggle.notify["active"].connect (() => {
             if (updating)return;
             var group = owner.get_selected_group ();
             if (group == null)return;
-            group.use_raised_effect = group_raised_toggle.get_active ();
+            group.use_sheen_layer = group_sheen_layer_toggle.get_active ();
             canvas.queue_draw ();
         });
 

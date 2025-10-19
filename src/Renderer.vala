@@ -373,17 +373,17 @@ public class IconRenderer : GLib.Object {
         return any;
     }
 
-    private void render_group_raised_effect (Cairo.Context cr, ElementGroup group, float cx, float cy, float preview, bool combined_effect) {
+    private void render_group_sheen_layer (Cairo.Context cr, ElementGroup group, float cx, float cy, float preview, bool combined_effect) {
         bool combined_done = false;
         if (combined_effect) {
-            combined_done = render_group_raised_effect_combined (cr, group, cx, cy, preview);
+            combined_done = render_group_sheen_layer_combined (cr, group, cx, cy, preview);
         }
         if (!combined_done) {
-            render_group_raised_effect_individual (cr, group, cx, cy, preview);
+            render_group_sheen_layer_individual (cr, group, cx, cy, preview);
         }
     }
 
-    private void render_group_raised_effect_individual (Cairo.Context cr, ElementGroup group, float cx, float cy, float preview) {
+    private void render_group_sheen_layer_individual (Cairo.Context cr, ElementGroup group, float cx, float cy, float preview) {
         int ne = (int) group.elements.get_n_items ();
         float max_x = cx + preview;
         float max_y = cy + preview;
@@ -423,23 +423,28 @@ public class IconRenderer : GLib.Object {
                 cr.translate (-center_x, -center_y);
             }
 
-            // Create raised effect as a 2px stroke with linear gradient from top to bottom
+            // Create sheen effect as a 2px stroke with linear gradient from top to bottom
             if (eh_d > 0.0) {
-                double white_end = 4.0 / eh_d;
-                double black_start = 1.0 - (4.0 / eh_d);
-
                 var gradient = new Cairo.Pattern.linear (ex_d, ey_d, ex_d, ey_d + eh_d);
                 gradient.set_extend (Cairo.Extend.PAD);
+                // Hard stops with transition near the middle
                 gradient.add_color_stop_rgba (0.0, 1.0, 1.0, 1.0, 0.4);
-                gradient.add_color_stop_rgba (white_end, 1.0, 1.0, 1.0, 0.4);
-                gradient.add_color_stop_rgba (0.5, 0.0, 0.0, 0.0, 0.0);
-                gradient.add_color_stop_rgba (black_start, 0.0, 0.0, 0.0, 0.2);
+                gradient.add_color_stop_rgba (0.1, 1.0, 1.0, 1.0, 0.0);
+                gradient.add_color_stop_rgba (0.1, 0.0, 0.0, 0.0, 0.0);
+                gradient.add_color_stop_rgba (0.9, 0.0, 0.0, 0.0, 0.0);
+                gradient.add_color_stop_rgba (0.9, 0.0, 0.0, 0.0, 0.0);
                 gradient.add_color_stop_rgba (1.0, 0.0, 0.0, 0.0, 0.2);
 
+                // Stroke inside the shape by clipping
+                cr.save ();
+                append_element_path (cr, el, ex_d, ey_d, ew_d, eh_d);
+                cr.clip ();
                 cr.set_source (gradient);
                 append_element_path (cr, el, ex_d, ey_d, ew_d, eh_d);
-                cr.set_line_width (2.0);
+                cr.set_line_width (4.0);
+                cr.set_line_join (Cairo.LineJoin.BEVEL);
                 cr.stroke ();
+                cr.restore ();
             }
 
             cr.restore ();
@@ -448,7 +453,7 @@ public class IconRenderer : GLib.Object {
         cr.restore ();
     }
 
-    private bool render_group_raised_effect_combined (Cairo.Context cr, ElementGroup group, float cx, float cy, float preview) {
+    private bool render_group_sheen_layer_combined (Cairo.Context cr, ElementGroup group, float cx, float cy, float preview) {
         Cairo.Path? path;
         double min_x;
         double min_y;
@@ -473,27 +478,81 @@ public class IconRenderer : GLib.Object {
             return false;
         }
 
-        // Create raised effect as a 2px stroke with linear gradient from top to bottom
+        // Create sheen effect as a 2px stroke with linear gradient from top to bottom
         cr.save ();
 
         if (height > 0.0) {
-            double white_end = 4.0 / height;
-            double black_start = 1.0 - (4.0 / height);
-
             var gradient = new Cairo.Pattern.linear (min_x, min_y, min_x, max_y);
             gradient.set_extend (Cairo.Extend.PAD);
+            // Hard stops with transition near the middle
             gradient.add_color_stop_rgba (0.0, 1.0, 1.0, 1.0, 0.4);
-            gradient.add_color_stop_rgba (white_end, 1.0, 1.0, 1.0, 0.4);
-            gradient.add_color_stop_rgba (0.5, 0.0, 0.0, 0.0, 0.0);
-            gradient.add_color_stop_rgba (black_start, 0.0, 0.0, 0.0, 0.2);
+            gradient.add_color_stop_rgba (0.1, 1.0, 1.0, 1.0, 0.0);
+            gradient.add_color_stop_rgba (0.1, 0.0, 0.0, 0.0, 0.0);
+            gradient.add_color_stop_rgba (0.9, 0.0, 0.0, 0.0, 0.0);
+            gradient.add_color_stop_rgba (0.9, 0.0, 0.0, 0.0, 0.0);
             gradient.add_color_stop_rgba (1.0, 0.0, 0.0, 0.0, 0.2);
 
-            cr.set_source (gradient);
-            cr.append_path (path);
-            cr.set_line_width (2.0);
-            cr.stroke ();
-        }
+            // Create a stroke on only the outer perimeter using morphological operations
+            int surf_width = (int) Math.ceil (width) + 8;
+            int surf_height = (int) Math.ceil (height) + 8;
+            double offset_x = min_x - 2.0;
+            double offset_y = min_y - 2.0;
 
+            // Create surface for the filled union
+            var filled_surface = new Cairo.ImageSurface (Cairo.Format.A8, surf_width, surf_height);
+            var filled_cr = new Cairo.Context (filled_surface);
+            filled_cr.translate (-offset_x, -offset_y);
+            filled_cr.append_path (path);
+            filled_cr.set_fill_rule (Cairo.FillRule.WINDING);
+            filled_cr.set_source_rgba (1.0, 1.0, 1.0, 1.0);
+            filled_cr.fill ();
+
+            // Create surface for the eroded version (1px smaller for centered stroke)
+            var eroded_surface = new Cairo.ImageSurface (Cairo.Format.A8, surf_width, surf_height);
+            var eroded_cr = new Cairo.Context (eroded_surface);
+            eroded_cr.translate (-offset_x, -offset_y);
+            eroded_cr.append_path (path);
+            eroded_cr.set_fill_rule (Cairo.FillRule.WINDING);
+            eroded_cr.set_source_rgba (1.0, 1.0, 1.0, 1.0);
+            eroded_cr.fill ();
+
+            // Erode by taking intersection of shifted versions (morphological erosion)
+            var temp_surface = new Cairo.ImageSurface (Cairo.Format.A8, surf_width, surf_height);
+            var temp_cr = new Cairo.Context (temp_surface);
+            double erode_dist = 2.0;
+
+            // For each direction, intersect with shifted version
+            int[] dx_vals = { -1, 0, 1, -1, 1, -1, 0, 1 };
+            int[] dy_vals = { -1, -1, -1, 0, 0, 1, 1, 1 };
+
+            for (int i = 0; i < 8; i++) {
+                double shift_x = dx_vals[i] * erode_dist;
+                double shift_y = dy_vals[i] * erode_dist;
+
+                temp_cr.save ();
+                temp_cr.set_operator (Cairo.Operator.SOURCE);
+                temp_cr.set_source_surface (eroded_surface, shift_x, shift_y);
+                temp_cr.paint ();
+                temp_cr.restore ();
+
+                eroded_cr.set_operator (Cairo.Operator.DEST_IN);
+                eroded_cr.set_source_surface (temp_surface, 0, 0);
+                eroded_cr.paint ();
+            }
+
+            // Create mask surface by subtracting eroded from filled
+            var mask_surface = new Cairo.ImageSurface (Cairo.Format.A8, surf_width, surf_height);
+            var mask_cr = new Cairo.Context (mask_surface);
+            mask_cr.set_source_surface (filled_surface, 0, 0);
+            mask_cr.paint ();
+            mask_cr.set_operator (Cairo.Operator.DEST_OUT);
+            mask_cr.set_source_surface (eroded_surface, 0, 0);
+            mask_cr.paint ();
+
+            // Now paint the gradient using this mask
+            cr.set_source (gradient);
+            cr.mask_surface (mask_surface, offset_x, offset_y);
+        }
         cr.restore ();
         return true;
     }
@@ -668,10 +727,6 @@ public class IconRenderer : GLib.Object {
                 cr.restore ();
             }
 
-            if (group.use_raised_effect) {
-                render_group_raised_effect (cr, group, cx, cy, preview, combined_effect);
-            }
-
             cr.set_operator (Cairo.Operator.OVER);
         }
 
@@ -683,6 +738,15 @@ public class IconRenderer : GLib.Object {
         }
         if (model.use_raised_effect) {
             render_canvas_overlay (cr, effects_handle, preview_ratio, (double) cx, (double) cy);
+        }
+
+        // Render group sheen layers after whole icon effects
+        for (int g = 0; g < ng; g++) {
+            var group = (ElementGroup) model.groups.get_item ((uint) g);
+            if (group.use_sheen_layer) {
+                bool combined_effect = (group.effect_scope == GroupEffectScope.COMBINED);
+                render_group_sheen_layer (cr, group, cx, cy, preview, combined_effect);
+            }
         }
         if (model.show_grid_overlay) {
             Rsvg.Handle? grid_handle = model.grid_overlay_variant == GridOverlayVariant.DARK ? grid_dark_handle : grid_light_handle;
