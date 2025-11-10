@@ -310,8 +310,8 @@ public class IconRenderer : GLib.Object {
                 }
 
                 if (group.shadow_chromatic) {
-                    // Darken the color to 50% to match shadow appearance
-                    cr.set_source_rgba (el.fill.red * 0.5, el.fill.green * 0.5, el.fill.blue * 0.5, alpha_per_pass);
+                    // Light glass-like shadow: use 75% brightness with reduced opacity
+                    cr.set_source_rgba (el.fill.red * 0.75, el.fill.green * 0.75, el.fill.blue * 0.75, alpha_per_pass * 0.6);
                 } else {
                     cr.set_source_rgba (0.0, 0.0, 0.0, alpha_per_pass);
                 }
@@ -371,8 +371,8 @@ public class IconRenderer : GLib.Object {
                 double avg_r = color_r / (double) color_samples;
                 double avg_g = color_g / (double) color_samples;
                 double avg_b = color_b / (double) color_samples;
-                // Darken the color to 50% to match shadow appearance
-                cr.set_source_rgba (avg_r * 0.5, avg_g * 0.5, avg_b * 0.5, alpha_per_pass);
+                // Light glass-like shadow: use 75% brightness with reduced opacity
+                cr.set_source_rgba (avg_r * 0.75, avg_g * 0.75, avg_b * 0.75, alpha_per_pass * 0.6);
             } else {
                 cr.set_source_rgba (0.0, 0.0, 0.0, alpha_per_pass);
             }
@@ -564,20 +564,27 @@ public class IconRenderer : GLib.Object {
             int[] dx_vals = { -1, 0, 1, -1, 1, -1, 0, 1 };
             int[] dy_vals = { -1, -1, -1, 0, 0, 1, 1, 1 };
 
+            // Start with a copy of the original for intersection
+            temp_cr.set_source_surface (eroded_surface, 0, 0);
+            temp_cr.paint ();
+
+            // Erode by intersecting with all shifted versions using MULTIPLY (AND operation for alpha)
             for (int i = 0; i < 8; i++) {
                 double shift_x = dx_vals[i] * erode_dist;
                 double shift_y = dy_vals[i] * erode_dist;
 
-                temp_cr.save ();
-                temp_cr.set_operator (Cairo.Operator.SOURCE);
+                // Intersect: multiply alpha values (keeps only where both are opaque)
+                temp_cr.set_operator (Cairo.Operator.MULTIPLY);
                 temp_cr.set_source_surface (eroded_surface, shift_x, shift_y);
                 temp_cr.paint ();
-                temp_cr.restore ();
-
-                eroded_cr.set_operator (Cairo.Operator.CLEAR);
-                eroded_cr.set_source_surface (temp_surface, 0, 0);
-                eroded_cr.paint ();
             }
+
+            // Copy final eroded result back
+            eroded_cr.set_operator (Cairo.Operator.CLEAR);
+            eroded_cr.paint ();
+            eroded_cr.set_operator (Cairo.Operator.SOURCE);
+            eroded_cr.set_source_surface (temp_surface, 0, 0);
+            eroded_cr.paint ();
 
             // Create mask surface by subtracting eroded from filled
             var mask_surface = new Cairo.ImageSurface (Cairo.Format.A8, surf_width, surf_height);
@@ -588,7 +595,8 @@ public class IconRenderer : GLib.Object {
             mask_cr.set_source_surface (eroded_surface, 0, 0);
             mask_cr.paint ();
 
-            // Now paint the gradient using this mask
+            // Now paint the gradient using this mask (only on perimeter)
+            cr.set_operator (Cairo.Operator.OVER);
             cr.set_source (gradient);
             cr.mask_surface (mask_surface, offset_x, offset_y);
         }
@@ -769,11 +777,6 @@ public class IconRenderer : GLib.Object {
             cr.set_operator (Cairo.Operator.OVER);
         }
 
-        // Raised Effect Overlay (only on top of background)
-        if (model.use_raised_effect) {
-            render_canvas_overlay (cr, effects_handle, preview_ratio, (double) cx, (double) cy);
-        }
-
         // Group Effects (rendered on top of background effects)
         for (int g = 0; g < ng; g++) {
             var group = (ElementGroup) model.groups.get_item ((uint) g);
@@ -783,9 +786,14 @@ public class IconRenderer : GLib.Object {
             }
         }
 
-        // Toolbox Frame + Dev Badge (always on top, in this order)
+        // Toolbox Frame (rendered before raised effect)
         if (model.use_frame_overlay) {
             render_canvas_overlay (cr, frame_handle, preview_ratio, (double) cx, (double) cy);
+        }
+
+        // Raised Effect Overlay (rendered on top of toolbox frame)
+        if (model.use_raised_effect) {
+            render_canvas_overlay (cr, effects_handle, preview_ratio, (double) cx, (double) cy);
         }
         if (model.show_dev_badge) {
             render_dev_badge (cr, preview_ratio);
